@@ -4,6 +4,12 @@
 **Toolchain:** Monad Foundry, solc 0.8.26 pinned, `evm_version = "cancun"`,
 `network = "monad"`.
 
+> **DEPLOYED TO MONAD MAINNET (143) on 2026-08-16.** Addresses, live verification output
+> and the honest list of what does and does not work are in **`DEPLOYMENT.md`**.
+> `FortVault` is `0x252709C4569E096BD4babe3be9175Ca2F49f152F`. Aave, Neverland, Euler and
+> Curvance are usable now; all swap paths are closed until the selector allowlist is
+> populated; ownership is still an EOA, not a timelock.
+
 State at submission: **Phases 0–4 complete** (Phase 4 task 14 skipped by operator
 instruction). **Phase 6 skipped** by operator instruction. **Phases 7–9 partially
 delivered** — written and tested, but not exercised against a live deployment (§10).
@@ -254,6 +260,7 @@ Phase 2 Base fixtures and fail; they are excluded from CI and were not in Phase 
 | `ADDRESSES.md` | Address book with per-address verification evidence |
 | `docs/gas-model.md` | Measured cost curve, `MAX_STEPS` derivation, per-adapter envelopes |
 | `src/adapters/PENDING.md` | The three empty slots and the bar any replacement must clear |
+| `DEPLOYMENT.md` | The live Monad mainnet deployment — addresses, what works, what is outstanding |
 | `../../FORTRESS_MONAD_PORT_PROMPT.md` | The master plan this port follows — Phases 0–10, invariants I1–I13, standing rules |
 
 

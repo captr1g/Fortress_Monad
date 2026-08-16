@@ -34,9 +34,17 @@ import "../src/config/MonadAddresses.sol";
 ///      allowlist ships EMPTY and fails closed. See step 7.
 contract DeployMonad is Script {
     function run() external {
-        // Guard against deploying to the wrong chain with the right script.
+        // MAINNET ONLY. Testnet 10143 is deliberately rejected.
+        //
+        // Every address in MonadAddresses was verified against mainnet 143 and NONE
+        // of them exists on testnet — USDC, the Aave pool, Curvance, Euler, shMONAD
+        // and the LI.FI diamond all return empty code on 10143. Allowing testnet
+        // here implied a rehearsal environment that does not exist: the run would
+        // revert partway through (AaveV3Adapter's constructor calls aToken.POOL()
+        // against an address with no code), and anything registered before that
+        // point would point at dead addresses.
         require(
-            block.chainid == MonadAddresses.CHAIN_ID || block.chainid == MonadAddresses.TESTNET_CHAIN_ID, "not Monad"
+            block.chainid == MonadAddresses.CHAIN_ID, "DeployMonad: mainnet 143 only - no protocol exists on testnet"
         );
 
         uint256 deployerPk = vm.envUint("PRIVATE_KEY");
