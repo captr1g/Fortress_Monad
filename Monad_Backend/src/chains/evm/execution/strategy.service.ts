@@ -1,5 +1,5 @@
 import { Address, createPublicClient, http } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import type { EvmTransaction, BuildResult, EvmChainConfig } from "../types.js";
 import type {
   MorphoMarketParams,
@@ -14,7 +14,7 @@ import { aggregateStrategyApy } from "@chains/evm/execution/apy.js";
 import {
   fetchLiFiUnwindQuote,
 } from "../protocols/lifi/swap-resolver.js";
-import { erc20Abi, morphoBlueAbi } from "../config/base_abi.js";
+import { erc20Abi, morphoBlueAbi } from "../config/abi.js";
 import { readFeeBps, netAfterFee } from "../helper/fee.js";
 import type { Intent } from "@domains/yield/types/intent.js";
 import type {
@@ -182,7 +182,7 @@ export class StrategyService {
 
       try {
         const client = createPublicClient({
-          chain: base,
+          chain: monad,
           transport: http(this.config.rpcUrl),
         });
         const wrapperAddr = await client.readContract({
@@ -741,7 +741,7 @@ export class StrategyService {
 
     try {
       const client = createPublicClient({
-        chain: base,
+        chain: monad,
         transport: http(this.config.rpcUrl),
       });
       const allowance = await client.readContract({
@@ -772,7 +772,7 @@ export class StrategyService {
     let authorized = false;
     try {
       const client = createPublicClient({
-        chain: base,
+        chain: monad,
         transport: http(this.config.rpcUrl),
       });
       authorized = await client.readContract({
@@ -797,7 +797,7 @@ export class StrategyService {
     const declared = BigInt(rawAmount);
     if (declared > 0n) return declared;
 
-    const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
     const balance = await client.readContract({
       address: token,
       abi: erc20Abi,

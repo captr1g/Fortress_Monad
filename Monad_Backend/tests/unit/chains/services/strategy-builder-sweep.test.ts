@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
 import { encodeFunctionData, decodeFunctionData, type Address } from "viem";
-import { strategyExecutorAbi } from "@chains/evm/config/base_abi.js";
+import { strategyExecutorAbi } from "@chains/evm/config/abi.js";
 
 // Validates that the ABI encodes the sweepTokens parameter correctly and that
 // the produced calldata is decodable with the updated 5-arg signature.
 
 describe("strategyExecutorAbi — sweepTokens encoding", () => {
-  const inputToken = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as Address;
+  const inputToken = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603" as Address;
   const inputAmount = 1_000_000n;
   const deadline = 9999999999n;
 
@@ -34,8 +34,8 @@ describe("strategyExecutorAbi — sweepTokens encoding", () => {
 
   it("encodes executeStrategy with multiple sweep tokens", () => {
     const sweep = [
-      "0x4200000000000000000000000000000000000006",
-      "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",
+      "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
+      "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
     ] as Address[];
 
     const data = encodeFunctionData({

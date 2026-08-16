@@ -31,10 +31,10 @@ export function startVaultApyWarmer(deps: {
       if (p.apySource === "aerodrome-gauge" && p.aerodromePools) {
         // Warm each Aerodrome pool independently
         for (const pool of p.aerodromePools) {
-          calls.push(fetchProtocolApy(p, config.rpcUrl, redis, undefined, pool.label));
+          calls.push(fetchProtocolApy(p, config, redis, undefined, pool.label));
         }
       } else {
-        calls.push(fetchProtocolApy(p, config.rpcUrl, redis, p.defaultPendleMarket));
+        calls.push(fetchProtocolApy(p, config, redis, p.defaultPendleMarket));
       }
     }
     const results = await Promise.allSettled(calls);

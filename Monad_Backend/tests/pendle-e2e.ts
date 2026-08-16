@@ -26,7 +26,7 @@ import {
   type Hex,
   type Address,
 } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
 // ─── Config ─────────────────────────────────────────────────────────────────
@@ -37,11 +37,11 @@ if (!PRIVATE_KEY) {
     "TEST_PRIVATE_KEY is not set. Use a throwaway test key — never a key holding real funds."
   );
 }
-const RPC_URL = process.env.RPC_BASE!;
-const PENDLE_CHAIN_ID = 8453;
+const RPC_URL = process.env.RPC_MONAD!;
+const PENDLE_CHAIN_ID = 143;
 
 const EXECUTOR: Address = "0x09Acd25f4Cd57155C47edc4b82855b50Ba67ad0D";
-const USDC: Address = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const USDC: Address = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
 
 // Pendle market: 40acresUSDC (27 Aug 2026) — USDC-denominated, good liquidity, not expired.
 const PT_TOKEN: Address = "0x3623567972AD7f44242eC354A38bdBaCFC73Aa42";
@@ -127,8 +127,8 @@ async function fetchPendlePtSwap(params: {
 
 async function main() {
   const account = privateKeyToAccount(PRIVATE_KEY);
-  const publicClient = createPublicClient({ chain: base, transport: http(RPC_URL) });
-  const walletClient = createWalletClient({ account, chain: base, transport: http(RPC_URL) });
+  const publicClient = createPublicClient({ chain: monad, transport: http(RPC_URL) });
+  const walletClient = createWalletClient({ account, chain: monad, transport: http(RPC_URL) });
 
   console.log("═══════════════════════════════════════════════════════════");
   console.log("  Pendle PT Buy — E2E (production path)");

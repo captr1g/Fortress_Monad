@@ -13,7 +13,7 @@ import {
   makeWithdrawIntent,
   makeRebalanceIntent,
 } from "../../../factories/intent.js";
-import { TOKENS } from "../../../datasets/base.js";
+import { TOKENS } from "../../../datasets/monad.js";
 
 // normalizeIntentAmount powers the LLM-free /simulate rescale. Getting it wrong
 // means a re-simulated plan sizes off the OLD amount — a correctness/safety bug.
@@ -62,15 +62,15 @@ describe("normalizeIntentAmount — rescalable intents", () => {
         {
           action: "swap",
           tokenIn: TOKENS.USDC,
-          tokenOut: TOKENS.cbETH,
+          tokenOut: TOKENS.WETH,
           bps: 10000,
           amountFixed: "1000000", // pinned to the OLD amount by a prior resolve pass
         },
         {
           action: "supplyCollateral",
-          tokenIn: TOKENS.cbETH,
+          tokenIn: TOKENS.WETH,
           bps: 10000,
-          protocolData: { marketId: "cbETH-USDC" },
+          protocolData: { marketId: "WETH-USDC" },
         },
       ],
     });

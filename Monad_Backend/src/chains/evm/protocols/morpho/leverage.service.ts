@@ -1,12 +1,12 @@
 import { createPublicClient, http, encodeFunctionData, type Address } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import type { EvmTransaction, BuildResult, EvmChainConfig } from "../../types";
 import { MorphoMarketService, computeMarketId } from "./morpho.service.js";
 import {
   morphoBlueAbi,
   morphoLeverageExecutorAbi,
   erc20Abi,
-} from "../../config/base_abi";
+} from "../../config/abi";
 import {
   fetchOraclePrice,
   ORACLE_PRICE_SCALE,
@@ -84,7 +84,7 @@ export class LeverageService {
       throw new Error("Leverage input amount is fully consumed by the fee.");
 
     // Guard: reject early if the wallet doesn't hold enough of the input token.
-    const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
     const userBalance = (await client.readContract({
       address: inputToken,
       abi: erc20Abi,
@@ -313,7 +313,7 @@ export class LeverageService {
         chainId: this.config.chainId,
       },
     ];
-    const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
     const authorized = await client.readContract({
       address: this.config.morphoBlue,
       abi: morphoBlueAbi,

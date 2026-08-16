@@ -10,8 +10,8 @@
 // contract pulls gross from the user before skimming.
 
 import { createPublicClient, http, type Address } from "viem";
-import { base } from "viem/chains";
-import { feeModuleAbi } from "../config/base_abi.js";
+import { monad } from "viem/chains";
+import { feeModuleAbi } from "../config/abi.js";
 
 const BPS = 10000n;
 
@@ -28,7 +28,7 @@ export async function readFeeBps(
   contract: Address,
 ): Promise<bigint> {
   try {
-    const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(rpcUrl) });
     const fee = (await client.readContract({
       address: contract,
       abi: feeModuleAbi,

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { describeIntegration } from "../../helpers/integration.js";
-import { BASE_CHAIN_ID } from "../../datasets/base.js";
+import { MONAD_CHAIN_ID } from "../../datasets/monad.js";
 
 // Contract: Pendle /core/v2/markets/all still returns { total, results:[{address,pt,yt,name,expiry}] }.
 // PendleMarketService.fetchAllMarkets maps exactly these; drift breaks Pendle
@@ -20,7 +20,7 @@ const MarketSchema = z.object({
 describeIntegration("contract: Pendle markets/all (Base)", () => {
   it("returns a paginated market list with the fields our client reads", async () => {
     const url = new URL(PENDLE_URL);
-    url.searchParams.set("chainId", String(BASE_CHAIN_ID));
+    url.searchParams.set("chainId", String(MONAD_CHAIN_ID));
     url.searchParams.set("limit", "100");
     url.searchParams.set("skip", "0");
 

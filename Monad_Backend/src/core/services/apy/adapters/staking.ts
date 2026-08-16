@@ -3,25 +3,28 @@ import type { ApyAdapter, Market, MarketRates } from "../types.js";
 const DEFILLAMA_CHART = "https://yields.llama.fi/chart";
 const TIMEOUT_MS = 10_000;
 
-// Base LST token address (lowercase) → DefiLlama pool uuid for its native staking yield.
-const POOL_BY_TOKEN: Record<string, string> = {
-  "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452":
-    "747c1d2a-c668-4682-b9f9-296708a3dd90",
-  "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a":
-    "333f3e8b-6fe3-4ba0-9657-265ae94b7496",
-  "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22":
-    "0f45d730-b279-4629-8e11-ccb5cc3038b4",
-  "0x2416092f143378750bb29b79ed961ab195cceea5":
-    "e28e32b5-e356-41d9-8dc7-a376ece56619",
-};
+// Monad LST token address (lowercase) → DefiLlama pool uuid for its native
+// staking yield.
+//
+// Empty on purpose. The Base entries this replaced were four verified uuids;
+// no equivalent has been confirmed for any Monad LST (shMON included), and a
+// guessed uuid would make the adapter report a *wrong* rate rather than an
+// absent one — getRatesBatch below already treats "not in this map" as "no
+// data", which is the honest outcome. Add an entry only once its uuid has been
+// checked against the live DefiLlama chart endpoint.
+const POOL_BY_TOKEN: Record<string, string> = {};
 
-// Tokens with no native yield as Morpho collateral (plain wrapped assets / stables).
-// Their collateral yield is a known 0, not missing data.
+// Tokens with no native yield as Morpho collateral (plain wrapped assets /
+// stables). Their collateral yield is a known 0, not missing data.
+// Addresses verified live on Monad mainnet — see ADDRESSES.md §2.
 const ZERO_YIELD_TOKENS = new Set<string>([
-  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf",
-  "0x4200000000000000000000000000000000000006",
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
-  "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca",
+  "0x754704bc059f8c67012fed69bc8a327a5aafb603", // USDC
+  "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242", // WETH
+  "0x0555e30da8f98308edb960aa94c0db47230d2b9c", // WBTC
+  "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b", // cbBTC
+  "0xe7cd86e13ac4309349f30b3435a9d337750fc82d", // USDT0
+  "0x00000000efe302beaa2b3e6e1b18d08d69a9012a", // AUSD
+  "0x3bd359c1119da7da1d913d1c4d2b7c461115433a", // WMON
 ]);
 
 type ChartPoint = {

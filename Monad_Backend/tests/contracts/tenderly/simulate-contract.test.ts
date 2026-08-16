@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { encodeFunctionData } from "viem";
 import { EvmSimulator } from "@chains/evm/simulator.js";
-import { erc20Abi } from "@chains/evm/config/base_abi.js";
+import { erc20Abi } from "@chains/evm/config/abi.js";
 import type { EvmTransaction } from "@chains/evm/types.js";
 import { describeIntegration, hasEnv } from "../../helpers/integration.js";
-import { TOKENS, WALLETS, CONTRACTS, BASE_CHAIN_ID } from "../../datasets/base.js";
+import { TOKENS, WALLETS, CONTRACTS, MONAD_CHAIN_ID } from "../../datasets/monad.js";
 
 // Contract: Tenderly simulate-bundle still returns simulation_results[] with
 // simulation.status and transaction.gas_used. EvmSimulator parses exactly these;
@@ -29,7 +29,7 @@ describeIntegration("contract: Tenderly simulate-bundle", () => {
           args: [CONTRACTS.LIFI_DIAMOND, 1_000_000n],
         }),
         value: 0n,
-        chainId: BASE_CHAIN_ID,
+        chainId: MONAD_CHAIN_ID,
       };
 
       const result = await sim.simulate([approve], WALLETS.sample);

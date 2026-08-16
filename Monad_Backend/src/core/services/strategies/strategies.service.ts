@@ -91,7 +91,7 @@ export class StrategiesService {
       try {
         const { description, apy } = await this.orchestrator.previewStrategy(
           entry.prompt,
-          "base",
+          "monad",
           PREVIEW_WALLET,
           log,
         );

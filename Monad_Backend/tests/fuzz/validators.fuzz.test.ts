@@ -13,11 +13,11 @@ import { UnsupportedAmountOverride } from "@shared/errors.js";
 import { norm } from "@chains/evm/helper/utils.js";
 import type { Intent } from "@domains/yield/types/intent.js";
 import { makeWithdrawIntent, makeDepositIntent } from "../factories/intent.js";
-import { TOKENS } from "../datasets/base.js";
+import { TOKENS } from "../datasets/monad.js";
 
 const markets = new Map<string, MarketParams>([
-  ["cbETH-USDC", { loanToken: TOKENS.USDC, collateralToken: TOKENS.cbETH }],
-  ["wstETH-USDC", { loanToken: TOKENS.USDC, collateralToken: TOKENS.wstETH }],
+  ["WETH-USDC", { loanToken: TOKENS.USDC, collateralToken: TOKENS.WETH }],
+  ["WMON-USDC", { loanToken: TOKENS.USDC, collateralToken: TOKENS.WMON }],
 ]);
 
 const ACTIONS = [
@@ -32,7 +32,7 @@ const ACTIONS = [
   "withdrawCollateral",
 ] as const;
 
-const tokenArb = fc.constantFrom(TOKENS.USDC, TOKENS.cbETH, TOKENS.wstETH, TOKENS.WETH);
+const tokenArb = fc.constantFrom(TOKENS.USDC, TOKENS.WETH, TOKENS.WMON, TOKENS.WETH);
 
 // A step generator that always satisfies the post-schema contract (tokenIn is a
 // real address string) but is otherwise semantically adversarial.
@@ -43,7 +43,7 @@ const stepArb: fc.Arbitrary<StrategyStepType> = fc.record({
   bps: fc.integer({ min: 0, max: 10000 }),
   protocolData: fc.option(
     fc.record({
-      marketId: fc.option(fc.constantFrom("cbETH-USDC", "wstETH-USDC", "ghost-USDC"), { nil: undefined }),
+      marketId: fc.option(fc.constantFrom("WETH-USDC", "WMON-USDC", "ghost-USDC"), { nil: undefined }),
       pendleMarket: fc.option(fc.constant(TOKENS.WETH), { nil: undefined }),
       targetLtv: fc.option(fc.integer({ min: 0, max: 100 }).map((x) => x / 100), { nil: undefined }),
     }),

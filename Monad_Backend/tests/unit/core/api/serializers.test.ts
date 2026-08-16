@@ -5,13 +5,13 @@ import {
 } from "@core/api/serializers.js";
 import type { EvmTransaction } from "@chains/evm/types.js";
 import type { PlanResult } from "@core/orchestrator.js";
-import { TOKENS } from "../../../datasets/base.js";
+import { TOKENS } from "../../../datasets/monad.js";
 
 const tx: EvmTransaction = {
   to: TOKENS.USDC,
   data: "0x095ea7b3",
   value: 12345678901234567890n,
-  chainId: 8453,
+  chainId: 143,
 };
 
 describe("serializeTransaction", () => {
@@ -21,7 +21,7 @@ describe("serializeTransaction", () => {
       to: TOKENS.USDC,
       data: "0x095ea7b3",
       value: "12345678901234567890",
-      chainId: 8453,
+      chainId: 143,
     });
     expect(typeof s.value).toBe("string");
   });

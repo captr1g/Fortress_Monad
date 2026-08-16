@@ -18,7 +18,7 @@ describe("pricing constants", () => {
 });
 
 describe("computeBorrowCeiling", () => {
-  // 1 cbETH collateral, price 2000 USDC (scaled to 1e36), target LTV 80%.
+  // 1 WETH collateral, price 2000 USDC (scaled to 1e36), target LTV 80%.
   const oneCbeth = 10n ** 18n;
   // Choose price so collateralValue = collateral*price/1e36 = 2000e6 (USDC, 6dp).
   const price = (2000n * 1_000_000n * ORACLE_PRICE_SCALE) / oneCbeth;

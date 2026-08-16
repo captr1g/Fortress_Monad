@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { encodeFunctionData, decodeFunctionData, type Address } from "viem";
-import { crossChainRouterAbi, fortVaultFeeAbi } from "@chains/evm/config/base_abi.js";
+import { crossChainRouterAbi, fortVaultFeeAbi } from "@chains/evm/config/abi.js";
 
 describe("crossChainRouterAbi — getWithdrawRequest includes minAcceptableAmount", () => {
   it("has 7 fields in the output tuple (including minAcceptableAmount)", () => {

@@ -1,8 +1,8 @@
 // Oracle pricing
 
 import { Address, createPublicClient, http } from "viem";
-import { base } from "viem/chains";
-import { morphoOracleAbi } from "../config/base_abi.js";
+import { monad } from "viem/chains";
+import { morphoOracleAbi } from "../config/abi.js";
 
 export const ORACLE_PRICE_SCALE = 10n ** 36n;
 export const WAD = 10n ** 18n;
@@ -18,7 +18,7 @@ export async function fetchOraclePrice(
   rpcUrl: string,
   oracle: Address,
 ): Promise<bigint> {
-  const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
+  const client = createPublicClient({ chain: monad, transport: http(rpcUrl) });
   const price = await client.readContract({
     address: oracle,
     abi: morphoOracleAbi,

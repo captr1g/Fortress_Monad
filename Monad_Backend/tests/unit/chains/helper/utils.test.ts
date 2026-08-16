@@ -35,7 +35,7 @@ describe("ltvToWad", () => {
 
 describe("norm", () => {
   it("strips non-alphanumerics and lowercases", () => {
-    expect(norm("cbETH-USDC")).toBe("cbethusdc");
+    expect(norm("WETH-USDC")).toBe("wethusdc");
     expect(norm("Morpho Blue!")).toBe("morphoblue");
   });
 
@@ -50,7 +50,7 @@ describe("norm", () => {
   });
 
   it("is idempotent", () => {
-    const once = norm("cbETH/USDC");
+    const once = norm("WETH/USDC");
     expect(norm(once)).toBe(once);
   });
 });

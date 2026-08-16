@@ -113,7 +113,7 @@ describe("decodeRevertFromResult — scans a Tenderly-shaped payload", () => {
   it("ignores unrelated hex (addresses) and only decodes real reverts", () => {
     // An address is 0x + 40 hex; its leading 4 bytes won't match any error
     // selector, so it must not produce a false decode.
-    const payload = { addr: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913" };
+    const payload = { addr: "0x754704bc059f8c67012fed69bc8a327a5aafb603" };
     expect(decodeRevertFromResult(payload)).toBeNull();
   });
 });

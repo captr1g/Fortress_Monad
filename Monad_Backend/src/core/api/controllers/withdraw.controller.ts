@@ -1,13 +1,13 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { z } from "zod";
 import { createPublicClient, http, type Address } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import type { WithdrawService } from "@chains/evm/contracts/vault-withdraw.js";
 import type { CalldataBuilder } from "@chains/evm/contracts/vault-builder.js";
 import type { EvmSimulator } from "@chains/evm/simulator.js";
 import type { EvmChainConfig } from "@chains/evm/types.js";
 import { PendleVaultService } from "@chains/evm/protocols/pendle/pendle-vault.service.js";
-import { erc20Abi } from "@chains/evm/config/base_abi.js";
+import { erc20Abi } from "@chains/evm/config/abi.js";
 import { FortressLogger } from "@shared/logger.js";
 
 const WithdrawRequestSchema = z.object({
@@ -126,7 +126,7 @@ export class WithdrawController {
     amountType: string,
   ): Promise<{ shares: string; minUsdcOut: string }> {
     try {
-      const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+      const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
       const ptAddress = await this.pendleVault.ptToken();
 
       const balance = (await client.readContract({

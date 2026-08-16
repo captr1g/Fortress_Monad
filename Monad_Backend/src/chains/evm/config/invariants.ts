@@ -1,5 +1,5 @@
 import { createPublicClient, http, keccak256, toBytes, type Address, type Chain } from "viem";
-import { base, mainnet, arbitrum } from "viem/chains";
+import { monad, monadTestnet } from "viem/chains";
 import type { EvmChainConfig } from "../types.js";
 
 const VAULT_PROTOCOLS_ABI = [
@@ -15,19 +15,9 @@ const VAULT_PROTOCOLS_ABI = [
   },
 ] as const;
 
-const monadChain = {
-  id: 143,
-  name: "Monad Mainnet",
-  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
-  rpcUrls: { default: { http: ["https://rpc.monad.xyz"] } },
-} as const satisfies Chain;
-
 const CHAIN_BY_ID: Record<number, Chain> = {
-  8453: base,
-  1: mainnet,
-  42161: arbitrum,
-  143: monadChain,
-  10143: monadChain,
+  143: monad,
+  10143: monadTestnet,
 };
 
 export type ProtocolMismatch = {
@@ -68,7 +58,7 @@ export async function verifyProtocolInvariants(
     return result;
   }
 
-  const chain = CHAIN_BY_ID[config.chainId] ?? base;
+  const chain = CHAIN_BY_ID[config.chainId] ?? monad;
   const client = createPublicClient({ chain, transport: http(config.rpcUrl) });
 
   for (const protocol of config.protocols) {

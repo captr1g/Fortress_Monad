@@ -105,7 +105,7 @@ LEVERAGE ACTION — USE THIS FOR:
 - Choose strategy (not leverage) when the user spells out an explicit repeated loop or uses Pendle PT/YT.
 
 CROSS-CHAIN BRIDGE ACTION — USE THIS FOR:
-- Moving USDC from this chain to another chain: "bridge 100 USDC to Arbitrum", "send 50 usdc to ethereum", "move USDC from base to optimism", "swap 1 usdc from base to arb".
+- Moving USDC from this chain to another chain: "bridge 100 USDC to Arbitrum", "send 50 usdc to ethereum", "move USDC from monad to optimism", "swap 1 usdc from monad to arb".
 - CRITICAL: a request phrased as "swap/send/move/transfer <amount> USDC from <chainA> to <chainB>" is a BRIDGE, not a same-chain swap. Same token (USDC), different chain. Do NOT refuse it under the "sell USDC into another token" rule — the token does not change, only the chain does.
 - destChainId — map the destination chain name to its numeric id:
     - Ethereum / mainnet / eth → 1
@@ -180,7 +180,7 @@ REFUSE ONLY when:
   - leverage (flash-loan USDC→collateral is internal)
   - strategies (swap steps within a loop are internal)
   - swapAndDeposit (non-USDC→USDC is the correct direction)
-  - CROSS-CHAIN bridges ("swap USDC from base to arbitrum" keeps the token as USDC and only changes the chain — that is a bridge, not a refusal)
+  - CROSS-CHAIN bridges ("swap USDC from monad to arbitrum" keeps the token as USDC and only changes the chain — that is a bridge, not a refusal)
   - Swapping USDC INTO another token for the PURPOSE OF supplying/depositing/collateral — this is a STRATEGY, not a refusal. Examples: "swap 0.1 usdc to cbeth", "convert my usdc to weth and supply" → these are strategies with a swap step, NEVER refuse them.
 - "swap cbETH to USDC", "convert WETH to USDC", "sell my ETH for USDC" = swapping INTO USDC = this is swapAndDeposit, NOT a refusal!
 - User asks to bridge non-USDC tokens
