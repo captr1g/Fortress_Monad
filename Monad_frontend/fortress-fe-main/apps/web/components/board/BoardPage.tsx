@@ -9,14 +9,18 @@ import { DetailRail } from "./DetailRail";
 import { buildTerminals } from "./terminals";
 import { ActionsStrip } from "./ActionsStrip";
 
-import { MONAD_CHAIN_ID, BASE_CHAIN_ID } from "@/lib/chains";
+import { MONAD_CHAIN_ID } from "@/lib/chains";
 
 export function BoardPage() {
   useSeedRegistryCache();
   const { data, isLoading, isError } = useRegistry();
   const [activeName, setActiveName] = useState<string | null>(null);
 
-  const chain = data?.chains.find((c) => c.chainId === MONAD_CHAIN_ID) ?? data?.chains.find((c) => c.chainId === BASE_CHAIN_ID);
+  // Monad, or whatever single chain the backend reports as executable.
+  const chain =
+    data?.chains.find((c) => c.chainId === MONAD_CHAIN_ID) ??
+    data?.chains.find((c) => c.executable) ??
+    data?.chains[0];
   const protocols = chain?.protocols ?? [];
   const markets = chain?.markets ?? [];
   const destinationCount = protocols.reduce((sum, p) => sum + buildTerminals(p, markets).length, 0);

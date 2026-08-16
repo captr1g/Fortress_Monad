@@ -23,8 +23,11 @@ function useResolvedAddress(symbol: string, explicit?: string): string | undefin
   const { data: registry } = useRegistry();
   if (explicit) return explicit;
   const chains = registry?.chains ?? [];
-  const base = chains.find((c) => c.chainId === 8453);
-  const ordered = base ? [base, ...chains.filter((c) => c !== base)] : chains;
+  // Resolve against the executable chain first — a symbol that exists on more
+  // than one registered chain should show the address we'd actually transact
+  // with, not whichever chain happens to be listed first.
+  const primary = chains.find((c) => c.executable);
+  const ordered = primary ? [primary, ...chains.filter((c) => c !== primary)] : chains;
   for (const chain of ordered) {
     const match = chain.tokens.find((t) => t.symbol.toLowerCase() === symbol.toLowerCase());
     if (match) return match.address;
@@ -167,14 +170,13 @@ export function ProtocolMark({ name, size = 30 }: { name: string; size?: number 
 }
 
 const NETWORK_LOGOS: Record<string, string> = {
-  "base": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/info/logo.png",
+  "monad": "https://avatars.githubusercontent.com/u/111000676?v=4",
   "mainnet": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
   "ethereum": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png",
   "optimism": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/optimism/info/logo.png",
   "arbitrum": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/arbitrum/info/logo.png",
   "bsc": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/smartchain/info/logo.png",
   "polygon": "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/polygon/info/logo.png",
-  "monad": "https://avatars.githubusercontent.com/u/111000676?v=4",
 };
 
 export function NetworkIcon({ network, size = 18 }: { network: string; size?: number }) {

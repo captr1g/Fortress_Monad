@@ -21,50 +21,52 @@ import { TAB_BAR_BASE_HEIGHT } from "@/components/AppTabBar";
 import * as haptics from "@/lib/haptics";
 import { shareStrategy } from "@/lib/share";
 
-const BASE_CHAIN_ID = 8453;
+const MONAD_CHAIN_ID = 143;
 
 // Offline fallback for the starting-token chip — mirrors the backend
-// registry's Base data (GET /fortress/registry supersedes it when reachable).
+// registry's Monad data (GET /fortress/registry supersedes it when reachable).
+// Address verified against live Monad RPC (ADDRESSES.md §2).
 const FALLBACK_INPUT_TOKENS = [
-  { symbol: "USDC", name: "USD Coin", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, inputEnabled: true },
+  { symbol: "USDC", name: "USD Coin", address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603", decimals: 6, inputEnabled: true },
 ];
 
 // Ported verbatim from apps/web/components/strategy/StrategyBuilder.tsx's
 // TEMPLATES — same label/token/desc/prompt for every card, so mobile
 // generates the exact same structured plan web does instead of a vaguer
 // one-liner that can resolve differently.
+// Kept in step with apps/web/components/strategy/StrategyBuilder.tsx's
+// TEMPLATES and with the backend catalog, so mobile generates the same
+// structured plan web does.
+//
+// These were Morpho cbETH collateral/leverage loops on Base. Monad registers
+// no Morpho markets and has no strategy/leverage executors deployed, so those
+// prompts now come back as refusals — replaced with the deposit flows the
+// backend can actually execute.
 const TEMPLATES = [
   {
-    title: "Basic Morpho Borrow",
+    title: "Supply USDC to Aave V3",
     token: "USDC",
-    sub: "Supply cbETH collateral to Morpho and borrow USDC against it safely.",
-    prompt:
-      "I have 1 USDC on Base.\n\n" +
-      "1. Swap 100% USDC to WETH.\n" +
-      "2. Wrap 100% WETH into cbETH.\n" +
-      "3. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base.\n" +
-      "4. Borrow USDC at 30% LTV against cbETH.",
+    sub: "Deposit into the deepest USDC lending market on Monad.",
+    prompt: "I have 1 USDC on Monad.\n\n1. Deposit 100% into Aave.",
   },
   {
-    title: "Morpho Leverage Loop (2x)",
+    title: "Split: Aave + Euler",
     token: "USDC",
-    sub: "Supply cbETH and automate a recursive 35% LTV borrow-swap-supply loop twice.",
+    sub: "Spread USDC across two independent lending markets instead of one.",
     prompt:
-      "I have 1 USDC on Base.\n\n" +
-      "1. Swap 100% USDC to WETH.\n" +
-      "2. Wrap 100% WETH into cbETH.\n" +
-      "3. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base.\n\n" +
-      "Then repeat 2 times:\n" +
-      "4. Borrow USDC at 35% LTV.\n" +
-      "5. Swap borrowed USDC to WETH.\n" +
-      "6. Wrap WETH into cbETH.\n" +
-      "7. Supply 100% cbETH.",
+      "I have 1 USDC on Monad.\n\n" +
+      "1. Deposit 60% into Aave.\n" +
+      "2. Deposit 40% into Euler.",
   },
   {
-    title: "Deposit 100 USDC into Morpho",
+    title: "Three-venue spread",
     token: "USDC",
-    sub: "Supply 100 USDC to Morpho for a steady yield.",
-    prompt: "I have 100 USDC on Base.\n\n1. Supply 100% USDC to Morpho on Base.",
+    sub: "Diversify across Aave, Euler and Curvance.",
+    prompt:
+      "I have 1 USDC on Monad.\n\n" +
+      "1. Deposit 50% into Aave.\n" +
+      "2. Deposit 25% into Euler.\n" +
+      "3. Deposit 25% into Curvance.",
   },
 ];
 
@@ -160,7 +162,7 @@ export function PromptScreen() {
   const { data: registryData } = useRegistry(fortressApi);
   const enabledTokens =
     registryData?.chains
-      .find((c) => c.chainId === BASE_CHAIN_ID)
+      .find((c) => c.chainId === MONAD_CHAIN_ID)
       ?.tokens.filter((t) => t.inputEnabled) ?? FALLBACK_INPUT_TOKENS;
   const [tokenIdx, setTokenIdx] = useState(0);
   const startingToken = enabledTokens[tokenIdx % enabledTokens.length];
@@ -171,7 +173,7 @@ export function PromptScreen() {
     createPlan.mutate({
       prompt: prompt.trim(),
       walletAddress: address,
-      chainId: BASE_CHAIN_ID,
+      chainId: MONAD_CHAIN_ID,
       inputToken: startingToken.address,
     });
   }

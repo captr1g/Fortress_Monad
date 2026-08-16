@@ -82,23 +82,25 @@ export interface UseExitPositionResult {
 // ─── Token address → decimals ─────────────────────────────────────────────────
 
 const DECIMALS: Record<string, number> = {
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": 6,  // USDC
-  "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2": 6,  // USDT
-  "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22": 18, // cbETH
-  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": 8,  // cbBTC
-  "0x2416092f143378750bb29b79ed961ab195cceea5": 18, // ezETH
-  "0xecac9c5f704e954931349da37f60bb39c9223e37": 8,  // LBTC
-  "0x4200000000000000000000000000000000000006": 18, // WETH
+  "0x754704bc059f8c67012fed69bc8a327a5aafb603": 6,  // USDC
+  "0x3bd359c1119da7da1d913d1c4d2b7c461115433a": 18, // WMON
+  "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": 18, // WETH
+  "0x0555e30da8f98308edb960aa94c0db47230d2b9c": 8,  // WBTC
+  "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b": 8,  // cbBTC
+  "0xe7cd86e13ac4309349f30b3435a9d337750fc82d": 6,  // USDT0
+  "0x00000000efe302beaa2b3e6e1b18d08d69a9012a": 6,  // AUSD
+  "0x1b68626dca36c7fe922fd2d55e4f631d962de19c": 18, // shMON
 };
 
 export const TOKEN_SYMBOLS: Record<string, string> = {
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": "USDC",
-  "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2": "USDT",
-  "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22": "cbETH",
-  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": "cbBTC",
-  "0x2416092f143378750bb29b79ed961ab195cceea5": "ezETH",
-  "0xecac9c5f704e954931349da37f60bb39c9223e37": "LBTC",
-  "0x4200000000000000000000000000000000000006": "WETH",
+  "0x754704bc059f8c67012fed69bc8a327a5aafb603": "USDC",
+  "0x3bd359c1119da7da1d913d1c4d2b7c461115433a": "WMON",
+  "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": "WETH",
+  "0x0555e30da8f98308edb960aa94c0db47230d2b9c": "WBTC",
+  "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b": "cbBTC",
+  "0xe7cd86e13ac4309349f30b3435a9d337750fc82d": "USDT0",
+  "0x00000000efe302beaa2b3e6e1b18d08d69a9012a": "AUSD",
+  "0x1b68626dca36c7fe922fd2d55e4f631d962de19c": "shMON",
 };
 
 export function formatReceive(raw: string, tokenAddress: string): string {
