@@ -1,6 +1,18 @@
-# FORTRESS Protocol
+# FORTRESS Protocol — contracts
 
-Stateless deposit router for USDC yield on Base. Users split deposits across multiple DeFi protocols in a single transaction. All output tokens (shares, LP tokens) go directly to the user — the vault never custodies funds beyond a single tx.
+Stateless deposit router for USDC yield on **Monad** (chain 143). Users split deposits
+across multiple DeFi protocols in a single transaction. All output tokens — shares,
+aTokens, LP — go directly to the user; no contract in this repo custodies funds beyond a
+single transaction.
+
+This is the contracts-level reference. For orientation, deployed addresses and current
+status see [`../../README.md`](../../README.md) and [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
+> **Ported from Base, not lifted.** Every third-party address was re-verified on chain
+> and several Base assumptions turned out to be actively wrong on Monad. See
+> [`DECISIONS.md`](DECISIONS.md) for the full record.
+
+---
 
 ## Architecture
 
@@ -9,7 +21,7 @@ Stateless deposit router for USDC yield on Base. Users split deposits across mul
                           |     User EOA     |
                           +--------+---------+
                                    |
-                          deposit / withdraw / rebalance / swapAndDeposit
+                    deposit / withdraw / rebalance
                                    |
                           +--------v---------+
                           |  ERC1967 Proxy   |
@@ -18,109 +30,154 @@ Stateless deposit router for USDC yield on Base. Users split deposits across mul
                                    |
                           +--------v---------+
                           |    FortVault     |
-                          |  (Implementation)|
                           +--------+---------+
                                    |
                  +-----------------+-----------------+
                  |                 |                 |
-         +-------v------+  +------v-------+  +------v-------+
+         +-------v------+  +-------v------+  +-------v-------+
          |   ERC-4626   |  | IFortProtocol|  |IFortProtocolEx|
-         |  (direct)    |  |  (adapter)   |  | (adapter+data)|
-         +--------------+  +--------------+  +--------------+
+         |  (fast path) |  |  (adapter)   |  | (adapter+data)|
+         +-------+------+  +-------+------+  +-------+-------+
                  |                 |                 |
-         +-------v------+  +------v-------+  +------v-------+
-         |    Morpho    |  | CompoundV3   |  | LiFiAdapter  |
-         |  Moonwell    |  |   Adapter    |  |      |       |
-         |    Aave      |  +--------------+  +------v-------+
-         |    Fluid     |  +------v-------+  | LiFi Diamond |
-         |    Euler     |  | PendleAdapter|  +--------------+
-         +--------------+  |  (with data) |
+         +-------v------+  +-------v------+  +-------v-------+
+         |    Euler     |  |AaveV3Adapter |  | LiFiAdapter   |
+         |   Curvance   |  |  (Aave V3)   |  |      |        |
+         |    Morpho    |  |AaveV3Adapter |  +------v--------+
+         |              |  | (Neverland)  |  | LI.FI Diamond |
+         +--------------+  +--------------+  |GenericSwapV3  |
+                                             +------+--------+
+                                                    ^
+                           +--------------+         |
+                           |ShMonadAdapter|---------+
+                           |USDC<->MON<-> |   (MON leg reuses
+                           |    shMON     |    LiFiAdapter)
                            +--------------+
 
-                          +------------------+
-                          |     User EOA     |
-                          +--------+---------+
-                                   |
-                     depositCrossChain / initiateWithdraw / claimWithdraw
-                                   |
-                          +--------v---------+
-                          | CrossChainRouter |
-                          |  (standalone)    |
-                          +--------+---------+
-                                   |
-                    +--------------+--------------+
-                    |                             |
-           +--------v---------+          +--------v---------+
-           |   LiFi Diamond   |          |     Keeper       |
-           | (bridge to dest) |          | (fulfill/refund) |
-           +------------------+          +------------------+
+
+        +------------------+          +------------------+
+        |     User EOA     |          |     User EOA     |
+        +--------+---------+          +--------+---------+
+                 |                             |
+      swapAndDeposit(non-USDC)      depositCrossChain / initiateWithdraw
+                 |                             |
+        +--------v---------+          +--------v---------+
+        |  FortSwapRouter  |          | CrossChainRouter |
+        |  (extracted for  |          |   (standalone)   |
+        |   EIP-170 size)  |          +--------+---------+
+        +--------+---------+                   |
+                 |                    +--------+--------+
+        +--------v---------+          |                 |
+        |  LI.FI Diamond   |   +------v-----+   +-------v------+
+        +------------------+   |LI.FI bridge|   |    Keeper    |
+                               +------------+   +--------------+
 ```
 
-## Deposit Flow
+**`swapAndDeposit` lives on `FortSwapRouter`, not on `FortVault`** — it was extracted to
+keep the vault under the contract size limit. `FortVault` exposes `deposit`, `withdraw`
+and `rebalance` only.
+
+**`ShMonadAdapter` routes its MON leg through `LiFiAdapter`** rather than calling the
+diamond directly, so route validation and the selector allowlist live in exactly one
+place.
+
+---
+
+## Flows
+
+### Deposit
 
 ```
 User                    FortVault                Protocol / Adapter
  |                          |                          |
  |-- deposit(entries[]) --->|                          |
- |                          |-- transferFrom(USDC) --->|  (pull total USDC from user)
+ |                          |-- transferFrom(USDC) --->|  (pull total from user)
+ |                          |                          |
+ |                          |  deposit fee (if set)    |
  |                          |                          |
  |                          |  for each entry:         |
  |                          |                          |
  |                          |  [ERC-4626]              |
- |                          |-- approve + deposit() -->|  Morpho / Aave / etc.
+ |                          |-- maxDeposit() --------->|  ProtocolAtCapacity if short
+ |                          |-- approve + deposit() -->|  Euler / Curvance / Morpho
+ |                          |-- minSharesOut check     |
  |                          |          shares -------->|  (minted to user directly)
  |                          |                          |
  |                          |  [Adapter, no data]      |
- |                          |-- approve + depositFor ->|  IFortProtocol adapter
- |                          |          tokens -------->|  (sent to user directly)
+ |                          |-- approve + depositFor ->|  AaveV3Adapter
+ |                          |          aTokens ------->|  (credited via onBehalfOf)
  |                          |                          |
  |                          |  [Adapter, with data]    |
- |                          |-- approve + depositFor ->|  IFortProtocolEx adapter
- |                          |    (amount, user, data)  |  (e.g. LiFi swap routes)
+ |                          |-- approve + depositFor ->|  LiFiAdapter / ShMonadAdapter
+ |                          |    (amount, user, data)  |  (route + minimums + deadline)
  |                          |          tokens -------->|  (sent to user directly)
  |                          |                          |
+ |                          |  approval cleared to 0   |
  |                          |  vault USDC balance = 0  |
  |<--- Deposited event -----|                          |
 ```
 
-## Swap and Deposit Flow
+Amounts are absolute. The last entry receives the remainder, eliminating rounding dust.
 
-For users holding non-USDC tokens (WETH, WBTC, etc.). Swaps to USDC via LiFi then split-deposits across protocols in a single transaction. Uses basis points (BPS) instead of absolute amounts since swap output is non-deterministic. Last entry gets the remainder to eliminate dust.
+### Withdraw
 
 ```
-User                    FortVault                LiFi Diamond         Protocol / Adapter
- |                          |                        |                      |
- |-- swapAndDeposit() ----->|                        |                      |
- |   (inputToken, amount,   |                        |                      |
- |    minUsdcOut, deadline,  |                        |                      |
- |    swapData[], entries[]) |                        |                      |
- |                          |                        |                      |
- |                          |  validate: lifi set,   |                      |
- |                          |  amount > 0,           |                      |
- |                          |  token != USDC,        |                      |
- |                          |  deadline, BPS = 10000 |                      |
- |                          |                        |                      |
- |                          |  validate swapData:    |                      |
- |                          |  callTo in approvedDex |                      |
- |                          |  approveTo == lifi     |                      |
- |                          |  override fromAmount   |                      |
- |                          |                        |                      |
- |                          |-- transferFrom(token)->|  (pull input token)  |
- |                          |-- approve + swap() --->|                      |
- |                          |<-- USDC to vault ------|                      |
- |                          |                        |                      |
- |                          |  slippage check        |                      |
- |                          |  clear token approval  |                      |
- |                          |                        |                      |
- |                          |  for each entry (BPS split):                  |
- |                          |-- approve + deposit -->|                      |
- |                          |          tokens ------>|               (to user)
- |                          |                        |                      |
- |                          |  vault balance = 0     |                      |
- |<-- SwapAndDeposited -----|                        |                      |
+User                    FortVault                Protocol / Adapter
+ |                          |                          |
+ |-- withdraw(entries[]) -->|                          |
+ |                          |  for each entry:         |
+ |                          |                          |
+ |                          |  [ERC-4626]              |
+ |                          |-- redeem(shares, user, user)
+ |                          |                          |
+ |                          |  [Adapter]               |
+ |                          |-- redeemFor(shares, user, user[, data])
+ |                          |     adapter pulls shares from the USER
+ |                          |     (user must approve the ADAPTER on the share token)
+ |                          |                          |
+ |                          |-- minUsdcOut check ----->|  SlippageExceeded if short
+ |                          |          USDC ---------->|  (sent to user directly)
+ |<--- Withdrawn event -----|                          |
 ```
 
-## Rebalance Flow
+### Swap and deposit — `FortSwapRouter`
+
+For users holding non-USDC. Swaps to USDC via LI.FI, then splits across protocols. Uses
+basis points rather than absolute amounts because swap output is non-deterministic; the
+last entry takes the remainder.
+
+```
+User                 FortSwapRouter           LI.FI Diamond      Protocol / Adapter
+ |                        |                        |                    |
+ |-- swapAndDeposit() --->|                        |                    |
+ |   (inputToken, amount, |                        |                    |
+ |    minUsdcOut, deadline,                        |                    |
+ |    swapData[], entries[])                       |                    |
+ |                        |                        |                    |
+ |                        |  amount > 0, token != USDC, deadline, BPS = 10000
+ |                        |                        |                    |
+ |                        |  per leg (I5):         |                    |
+ |                        |   callTo    in isApprovedDex                |
+ |                        |   approveTo in isApprovedDex   <-- NOT "== diamond"
+ |                        |   selector  in isApprovedSwapSelector       |
+ |                        |  route ends: leg0.sendingAssetId == inputToken
+ |                        |              legN.receivingAssetId == USDC  |
+ |                        |  override leg0.fromAmount  (I6)             |
+ |                        |                        |                    |
+ |                        |-- transferFrom(token)->|                    |
+ |                        |-- approve + swapV3() ->|  Single or Multiple
+ |                        |<-- USDC to router -----|  ERC20->ERC20      |
+ |                        |                        |                    |
+ |                        |  delta vs pre-call snapshot                 |
+ |                        |  minUsdcOut check, fee, clear approval      |
+ |                        |  sweep residual input back to user          |
+ |                        |                                             |
+ |                        |  for each entry (BPS split):                |
+ |                        |-- approve + deposit ----------------------->|
+ |                        |          tokens --------------------------->| (to user)
+ |<-- SwapAndDeposited ---|                                             |
+```
+
+### Rebalance
 
 ```
 User                    FortVault              Source Protocol    Target Protocol
@@ -129,15 +186,66 @@ User                    FortVault              Source Protocol    Target Protoco
  |                          |                       |                   |
  |                          |-- redeem/redeemFor -->|                   |
  |                          |<-- USDC (to vault) ---|                   |
+ |                          |  minUsdcOut check     |                   |
  |                          |                       |                   |
- |                          |-- approve + deposit/depositFor --------->|
- |                          |                       |    shares ------->| (to user)
+ |                          |-- maxDeposit() guard on target ---------->|
+ |                          |-- approve + deposit/depositFor ---------->|
+ |                          |  minSharesOut check   |    shares ------->| (to user)
  |                          |                       |                   |
  |                          |  vault USDC balance = 0                   |
  |<--- Rebalanced event ----|                       |                   |
 ```
 
-## Protocol Dispatch Logic
+USDC rests in the vault only *within* the transaction, between the two legs.
+
+### Cross-chain deposit — `CrossChainRouter`
+
+```
+User                  CrossChainRouter            LI.FI Diamond          Destination
+ |                          |                          |                    |
+ |-- depositCrossChain() -->|                          |                    |
+ |   (amount, destChain,    |                          |                    |
+ |    lifiData, deadline)   |                          |                    |
+ |                          |  selector in isApprovedBridgeSelector          |
+ |                          |-- transferFrom(USDC) --->|                    |
+ |                          |-- forceApprove(LI.FI) -->|                    |
+ |                          |-- lifiDiamond.call() --->|                    |
+ |                          |   (raw bridge calldata)  |--- bridge USDC --->|
+ |                          |   balance delta check    |                    |
+ |                          |   UsdcNotConsumed if not |         shares --> user on dest
+ |<-- requestId (Pending) --|                          |                    |
+ |                          |                          |                    |
+ |        ... async bridge completes ...               |                    |
+ |  Keeper: markDepositCompleted(requestId)            |                    |
+```
+
+### Cross-chain withdraw
+
+```
+User                  CrossChainRouter            Keeper
+ |                          |                       |
+ |-- initiateWithdraw() --->|                       |
+ |   (expectedUsdc,         |                       |
+ |    sourceChain, deadline)|                       |
+ |<-- requestId (Pending) --|                       |
+ |                          |                       |
+ |    ... keeper redeems shares on the dest chain ...|
+ |    ... keeper bridges USDC back to the router ... |
+ |                          |                       |
+ |                          |<-- fulfillWithdraw() -|
+ |                          |   status -> Completed |
+ |                          |   pendingWithdrawBalance reserved
+ |                          |                       |
+ |-- claimWithdraw() ------>|                       |
+ |<-- USDC transferred -----|   status -> Claimed   |
+```
+
+> **Phase 6 was descoped.** `CrossChainRouter` is deployed but its bridge selector
+> allowlist has not been rebuilt for the Monad LI.FI diamond's facets, so cross-chain
+> deposits revert until `setApprovedBridgeSelector` is populated. Only one bridge facet
+> selector was ever confirmed by live quote (`polymerStandard`, `0x17917a4e`).
+
+### Protocol dispatch
 
 ```
 entry.data empty?
@@ -150,287 +258,216 @@ entry.data empty?
     +-- NO  --> IFortProtocolEx.depositFor(amount, user, data)
 ```
 
-## Contract Overview
+---
+
+## Contracts
 
 | Contract | Description |
 |---|---|
-| `FortVault` | Core router. UUPS upgradeable, Ownable2Step, Pausable, ReentrancyGuard. Manages protocol registry and dispatches deposits/withdrawals/rebalances/swapAndDeposits. Integrates LiFi for token swaps with DEX allowlisting. |
-| `CrossChainRouter` | Standalone cross-chain deposit/withdraw router. Bridges USDC via LiFi to destination chains. Async model: deposit initiates bridge, keeper tracks status, withdrawals use intent-fulfill-claim pattern. |
-| `IFortProtocol` | Adapter interface for non-ERC4626 protocols. `depositFor(amount, receiver)` and `redeemFor(shares, receiver, owner)`. |
-| `IFortProtocolEx` | Extended adapter interface. Adds `bytes calldata data` parameter for protocols needing dynamic routing data (swap routes, bridge params). |
-| `ICrossChainRouter` | Cross-chain router interface. Defines `DepositRequest`/`WithdrawRequest` structs, `RequestStatus` enum, and deposit/withdraw/claim/refund functions. |
-| `ILiFi` | LiFi Diamond types. `LibSwap.SwapData` struct and `ILiFiGenericSwapFacet` interface. |
-| `LiFiAdapter` | Stateless adapter for LiFi Diamond. Encodes/decodes swap data, overrides `fromAmount` for security, provides `rescueToken` for emergencies. |
-| `CompoundV3Adapter` | Adapter for Compound V3 (Comet). Wraps supply/withdraw calls to the Comet contract via IFortProtocol interface. |
-| `PendleAdapter` | Adapter for Pendle PT operations. Buys PT on deposit via `swapExactTokenForPt`, sells/redeems PT on withdraw. Market whitelist via `setApprovedMarket`. Implements IFortProtocolEx (requires `bytes data`). |
+| `FortVault` | Core router. UUPS, Ownable2Step, Pausable, ReentrancyGuardTransient. Protocol registry keyed by `keccak256(name)`; dispatches deposit / withdraw / rebalance. ERC-4626 path carries a `ProtocolAtCapacity` guard. Deposit fee is **timelocked** — `queueDepositFeeBps` → wait → `executeDepositFeeBps`, capped at `MAX_DEPOSIT_FEE_BPS = 500` (5%). |
+| `FortSwapRouter` | `swapAndDeposit` for non-USDC input. Extracted from the vault for EIP-170. Owns its own DEX + selector allowlists. |
+| `CrossChainRouter` | Standalone async cross-chain deposit/withdraw. Bridge **selector** allowlist, balance-delta check (`UsdcNotConsumed`), `pendingWithdrawBalance` accounting so rescue/refund cannot touch reserved funds. |
+| `FortStrategyExecutor` | Multi-step strategy runner. `MAX_STEPS = 10`, re-derived from measured Monad gas. |
+| `LiFiAdapter` | LI.FI **GenericSwapFacetV3** — all six variants, selected by an explicit `SwapKind` in the payload rather than inferred. Address + selector allowlists, route end-asset checks, delta-verified output, native-MON handling. |
+| `AaveV3Adapter` | One implementation, **two deployments**: Aave V3 Monad and Neverland. `pool`/`aToken` are immutables (a cold SLOAD costs ~8,100 gas on Monad); the constructor proves the (pool, aToken, underlying) triple agrees on chain. |
+| `ShMonadAdapter` | FastLane shMONAD. USDC→MON→shMON and back, MON leg via `LiFiAdapter`. Per-leg slippage floors; exposes `previewRedeemMon` because the exit carries a real haircut. |
+| `MorphoStrategyAdapter` | Morpho Blue supply/withdraw for the strategy executor. |
+| `MorphoLeverageExecutor` / `MorphoExitExecutor` | Flash-loan leverage open/close. Callback guarded by `msg.sender == morpho` **plus** a transient commitment hash. **Not deployed**; fork tests not yet rebuilt for Monad. |
+| `PendleAdapter` / `PendleStrategyAdapter` | Pendle PT operations. Market allowlist **not rebuilt** for Monad markets. |
+| `SwapStrategyAdapter` | Venue-agnostic swap step for the executor. EXACT and FULL-BALANCE modes. |
+| `MonadAddresses` | The **only** file permitted to contain a 40-hex address literal. CI enforces it, and the check scans comments too. |
 
-## Deployed Contracts (Base Mainnet)
+---
 
-| Contract | Address | Verified |
-|---|---|---|
-| FortVault (Proxy) | [`0x1d19D3421a5a277201bEc3F596d61FB866284506`](https://basescan.org/address/0x1d19D3421a5a277201bEc3F596d61FB866284506) | [BaseScan](https://basescan.org/address/0x364fbbe0cE0f0828c3D2CAEa284d6fcD85De25F9#code) |
-| FortVault (Impl) | [`0x364fbbe0cE0f0828c3D2CAEa284d6fcD85De25F9`](https://basescan.org/address/0x364fbbe0cE0f0828c3D2CAEa284d6fcD85De25F9) | [BaseScan](https://basescan.org/address/0x364fbbe0cE0f0828c3D2CAEa284d6fcD85De25F9#code) |
-| LiFiAdapter | [`0x5460286d8C0B7d50Dd422c12De34944Eb081C138`](https://basescan.org/address/0x5460286d8C0B7d50Dd422c12De34944Eb081C138) | [BaseScan](https://basescan.org/address/0x5460286d8C0B7d50Dd422c12De34944Eb081C138#code) |
-| CrossChainRouter | [`0x7D15b7fe74810EBBA1a153A4Bf732d8Ee85B3739`](https://basescan.org/address/0x7D15b7fe74810EBBA1a153A4Bf732d8Ee85B3739) | [BaseScan](https://basescan.org/address/0x7D15b7fe74810EBBA1a153A4Bf732d8Ee85B3739#code) |
-| CompoundV3Adapter | [`0xC161A7A56124c45430CB52A2Ef27Cd9BD991688d`](https://basescan.org/address/0xC161A7A56124c45430CB52A2Ef27Cd9BD991688d) | [BaseScan](https://basescan.org/address/0xC161A7A56124c45430CB52A2Ef27Cd9BD991688d#code) |
-| PendleAdapter | [`0x43Cb307003f9A9E069dF9741dA59F1e462774014`](https://basescan.org/address/0x43Cb307003f9A9E069dF9741dA59F1e462774014) | [BaseScan](https://basescan.org/address/0x43Cb307003f9A9E069dF9741dA59F1e462774014#code) |
+## Security model
 
-### Registered Protocols
+### Invariants
 
-| Protocol | Address | Type |
-|---|---|---|
-| Morpho Moonwell USDC | `0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca` | ERC-4626 |
-| Aave V3 StataTokenV2 USDC | `0xC768c589647798a6EE01A91FdE98EF2ed046DBD6` | ERC-4626 |
-| Fluid fUSDC | `0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169` | ERC-4626 |
-| Euler Earn USDC | `0x67f062a12f82c3b42d4CA7a35fb26CbAac28008B` | ERC-4626 |
-| LiFi (via LiFiAdapter) | `0x5460286d8C0B7d50Dd422c12De34944Eb081C138` | Adapter |
-| CompoundV3 (via CompoundV3Adapter) | [`0xC161A7A56124c45430CB52A2Ef27Cd9BD991688d`](https://basescan.org/address/0xC161A7A56124c45430CB52A2Ef27Cd9BD991688d) | Adapter |
-| Pendle (via PendleAdapter) | [`0x43Cb307003f9A9E069dF9741dA59F1e462774014`](https://basescan.org/address/0x43Cb307003f9A9E069dF9741dA59F1e462774014) | Adapter |
+| | |
+|---|---|
+| **I1 Stateless** | Every adapter's balance of every asset is zero once a call returns. Residual input is swept back to whoever supplied it. |
+| **I2 Direct delivery** | Output goes to the end user, never parked. Aave uses `onBehalfOf`; shMONAD mints straight to the receiver. |
+| **I5 Allowlists** | Any call into a user-supplied external target is validated by **address *and* function selector**. An address allowlist alone was an audit finding on Base. |
+| **I6 Protocol-computed amounts** | Leg 0's `fromAmount` is overwritten with the protocol's amount, so user calldata cannot inflate a swap. |
+| **I7 Approval hygiene** | Approvals scoped to the exact amount and revoked in the same transaction. |
+| **I8 Slippage** | A caller-supplied minimum on every value-converting leg — and for two-leg paths, **per leg**, so a bad swap cannot hide behind a good exchange rate. |
+| **I13 Bounded gas** | Measured envelopes asserted under Monad Foundry. |
 
-### Pendle Whitelisted Markets
+Plus: **delta-based verification** everywhere — output is measured against a pre-call
+snapshot, never an absolute balance, and never taken from the callee's return value on
+trust. The check must stay correct when a token repeats across steps.
 
-| Market | Address | Expiry |
-|---|---|---|
-| yoUSD | `0x250c15e59a7572195e248f668636723cca20a2b8` | 2026-09-24 |
-| 40acresUSDC | `0x87e9a352d50146fa03373c52b9b21a32402a9597` | 2026-08-27 |
-| USDC (Morpho cbBTC) | `0xa97bb0de338b23c088dba9bf8c948da726e49033` | 2026-09-17 |
+### Corrections made during the port
 
-### External Dependencies
+- **`approveTo` is allowlisted, not compared to the diamond.** The Base rule required
+  `approveTo == lifiDiamond`. In LI.FI, `approveTo` is the spender the diamond approves —
+  the DEX, or a DEX's separate token-transfer proxy — never the diamond itself. The rule
+  rejected every live quote and survived CI only because the test mock doubled as both.
+- **Selector allowlists added** to `LiFiAdapter` and `FortSwapRouter`; they previously
+  gated on address alone.
+- **`depositFor` now verifies its own output delta** instead of trusting the diamond's
+  internal minimum.
+- **Route end-assets are pinned** to the declared input and output tokens.
 
-| Name | Address | Type |
-|---|---|---|
-| USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | ERC-20 |
-| LiFi Diamond | `0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE` | Diamond proxy |
-| Compound V3 Comet (USDC) | `0xb125E6687d4313864e53df431d5425969c15Eb2F` | Comet proxy |
-| Pendle Router V4 | `0x888888888889758F76e7103c6CbF23ABbF58F946` | Router |
-| Fluid fUSDC Vault | `0xf42f5795D9ac7e9D757dB633D693cD548Cfd9169` | ERC-4626 |
-| Euler Earn USDC Vault | `0x67f062a12f82c3b42d4CA7a35fb26CbAac28008B` | ERC-4626 |
+### Not yet done
 
-## Adding Protocols Post-Deploy
+- **No timelock on ownership.** The deployer EOA holds `_authorizeUpgrade` on every proxy.
+  `DeployTimelock.s.sol` → `TransferOwnership.s.sol` → `acceptOwnership()` closes it;
+  `VerifyDeployment.s.sol` fails loudly on the half-finished state.
+- **No audit.** `test/unit/AccessControl.sweep.t.sol` asserts every owner/vault gate,
+  the upgrade path and initializer lockdown — that is a slice, not a security review.
+  Slither has not been run.
 
-No upgrade required. Owner calls `registerProtocol` on the proxy:
+---
 
-```solidity
-// ERC-4626 protocol — register address directly
-vault.registerProtocol("Morpho", 0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca, true);
+## Gas — read this before setting a limit
 
-// Non-ERC4626 protocol — deploy adapter, register adapter address
-LiFiAdapter adapter = new LiFiAdapter(USDC, LIFI_DIAMOND, owner);
-vault.registerProtocol("LiFi", address(adapter), false);
+**Monad charges on `gas_limit`, not `gas_used`.** Gas is a correctness concern here, not
+an optimisation.
 
-// Remove a protocol
-vault.removeProtocol("Morpho");
-```
+Upstream Foundry prices a cold SLOAD at **2,162**; Monad prices it at **8,162** — a 3.85×
+under-report on the operation this codebase does most. Installing Monad Foundry is **not
+sufficient**: `network = "monad"` in `foundry.toml` selects the schedule, and without it
+`forge test` silently keeps Ethereum prices. `test/gas/ColdSloadPricing.t.sol` fails the
+build if the wrong schedule is active.
 
-## Configuring LiFi (for swapAndDeposit)
+Measured envelopes per entry point are in [`docs/gas-model.md`](docs/gas-model.md).
+`MAX_STEPS` was re-derived from measurement and cut **30 → 10**.
 
-Owner sets the LiFi Diamond address and approves DEXes that LiFi may route swaps through:
+---
 
-```solidity
-// Set LiFi Diamond
-vault.setLiFiDiamond(0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE);
-
-// Approve DEXes that LiFi routes through
-vault.setApprovedDex(0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE, true); // LiFi itself
-vault.setApprovedDex(0xDEF1ABE..., true); // e.g. 0x Exchange Proxy
-
-// Revoke a DEX
-vault.setApprovedDex(0xDEF1ABE..., false);
-```
-
-## Cross-Chain Deposit Flow
-
-```
-User                  CrossChainRouter            LiFi Diamond          Destination
- |                          |                          |                    |
- |-- depositCrossChain() -->|                          |                    |
- |   (amount, destChain,    |                          |                    |
- |    lifiData, deadline)   |                          |                    |
- |                          |-- transferFrom(USDC) --->|                    |
- |                          |-- forceApprove(LiFi) --->|                    |
- |                          |-- lifiDiamond.call() --->|                    |
- |                          |   (raw bridge calldata)  |--- bridge USDC --->|
- |                          |   balance delta check    |                    |
- |                          |                          |         shares --> user on dest
- |<-- requestId (Pending) --|                          |                    |
- |                          |                          |                    |
- |        ... async bridge completes ...               |                    |
- |                          |                          |                    |
- |  Keeper: markDepositCompleted(requestId)            |                    |
-```
-
-## Cross-Chain Withdraw Flow
-
-```
-User                  CrossChainRouter            Keeper
- |                          |                       |
- |-- initiateWithdraw() --->|                       |
- |   (expectedUsdc,         |                       |
- |    sourceChain, deadline) |                       |
- |<-- requestId (Pending) --|                       |
- |                          |                       |
- |    ... keeper redeems shares on dest chain ...   |
- |    ... keeper bridges USDC back to router ...    |
- |                          |                       |
- |                          |<-- fulfillWithdraw() -|
- |                          |   (requestId, amount) |
- |                          |   status → Completed  |
- |                          |                       |
- |-- claimWithdraw() ------>|                       |
- |<-- USDC transferred -----|                       |
- |                          |   status → Claimed    |
-```
-
-## Security Model
-
-### FortVault (Same-Chain)
-- **Stateless**: Vault USDC balance = 0 after every tx. No custodied funds.
-- **UUPS Upgradeable**: Only owner can upgrade implementation.
-- **Ownable2Step**: Ownership transfer requires explicit acceptance.
-- **Pausable**: Owner can pause all user operations in emergencies.
-- **ReentrancyGuard**: Prevents reentrancy on deposit/withdraw/rebalance.
-- **fromAmount Override**: LiFiAdapter forces `swapData[0].fromAmount` to match the vault-provided amount, preventing user-submitted data from inflating swap amounts.
-- **DEX Allowlist**: `swapAndDeposit` validates every `swapData[].callTo` against `isApprovedDex` mapping. `approveTo` must equal `lifiDiamond`. Prevents routing through malicious contracts.
-- **BPS Split (No Dust)**: Swap output split using basis points (sum = 10000). Last entry receives remainder, eliminating rounding dust.
-- **Approval Hygiene**: Input token approval to LiFi Diamond cleared to zero after every swap.
-- **rescueToken**: Owner-only emergency recovery on adapters.
-
-### CrossChainRouter (Cross-Chain)
-- **Standalone**: Completely separate from FortVault. No shared state, no regression risk.
-- **Balance Delta Check**: Verifies LiFi consumed the deposited USDC. Reverts with `UsdcNotConsumed` if USDC stays in or returns to the router.
-- **Pending Withdraw Accounting**: `pendingWithdrawBalance` tracks USDC reserved for fulfilled withdrawals. Rescue and refund functions cannot touch reserved funds.
-- **Underflow Protection**: All balance-minus-pending calculations guard against underflow with explicit checks.
-- **Keeper + Owner Dual Access**: Keeper manages status transitions; owner retains override access.
-- **Approval Hygiene**: Residual LiFi approval cleared to zero after every deposit.
-- **Pausable**: Owner can pause deposits and withdrawal initiations.
-
-## Project Structure
+## Layout
 
 ```
 src/
-  FortVault.sol                    # Core vault (UUPS proxy implementation)
-  CrossChainRouter.sol             # Standalone cross-chain deposit/withdraw router
+  FortVault.sol                    # core router (UUPS)
+  FortSwapRouter.sol               # swapAndDeposit, extracted for EIP-170
+  CrossChainRouter.sol             # standalone async cross-chain router
+  FortStrategyExecutor.sol         # multi-step strategy runner (MAX_STEPS = 10)
+  MorphoLeverageExecutor.sol       # flash-loan leverage open
+  MorphoExitExecutor.sol           # flash-loan leverage close
   interfaces/
-    IFortProtocol.sol              # Base adapter interface
-    IFortProtocolEx.sol            # Extended interface (bytes data)
-    ICrossChainRouter.sol          # Cross-chain router interface
-    ILiFi.sol                      # LiFi Diamond types
-    IComet.sol                     # Compound V3 Comet interface
-    IPendleRouter.sol              # Pendle V2 Router interface (PT operations)
+    IFortProtocol.sol              # base adapter interface
+    IFortProtocolEx.sol            # + bytes data (routes, minimums, deadline)
+    ILiFi.sol                      # GenericSwapFacetV3, SwapKind, diamond loupe
+    IAaveV3Pool.sol                # minimal Aave slice + config-bitmap library
+    IShMonad.sol                   # shMONAD (native-MON asset) + ILiFiSwapper
+    IMorphoBlue.sol  IPendleRouter.sol  IStrategyAdapter.sol  ICrossChainRouter.sol
   adapters/
-    LiFiAdapter.sol                # Stateless LiFi adapter
-    CompoundV3Adapter.sol          # Compound V3 (Comet) adapter
-    PendleAdapter.sol              # Pendle PT adapter (market-whitelisted)
-  strategies/
-    DiversifiedYieldStrategy.sol   # Multi-protocol yield strategy
+    LiFiAdapter.sol                # GenericSwapFacetV3, all six variants
+    AaveV3Adapter.sol              # Aave V3 Monad AND Neverland
+    ShMonadAdapter.sol             # USDC <-> MON <-> shMON
+    MorphoStrategyAdapter.sol  PendleAdapter.sol
+    PendleStrategyAdapter.sol  SwapStrategyAdapter.sol
+    PENDING.md                     # the three empty slots, and the bar for a replacement
+  config/
+    MonadAddresses.sol             # the ONLY file with address literals
 
 script/
-  DeployBase.s.sol                 # Full deployment: vault + adapter + router + config
-  DeployNewProtocols.s.sol         # Deploy Fluid, Euler, CompoundV3, Pendle on existing vault
-  PostDeploy.s.sol                 # Post-deploy verification + optional configuration
+  DeployMonad.s.sol                # full deployment (mainnet 143 only)
+  VerifyDeployment.s.sol           # read-only post-deploy assertions
+  DeployTimelock.s.sol             # 48h TimelockController, self-governed
+  TransferOwnership.s.sol          # start the Ownable2Step handover
+  ci/check-address-literals.sh     # address-book integrity gate
 
 test/
-  helpers/
-    FortVaultTestBase.sol          # Shared test setup (proxy deploy, MockUSDC)
-  mocks/
-    MockUSDC.sol                   # ERC20, 6 decimals, public mint/burn
-    MockERC4626Vault.sol           # OZ ERC4626, 1:1 share ratio
-    MockFortProtocol.sol           # IFortProtocol mock with call recording
-    MockFortProtocolEx.sol         # IFortProtocolEx mock with data recording
-    MockLiFiDiamond.sol            # LiFi swap simulator with configurable rate
-    MockLiFiBridge.sol             # LiFi cross-chain bridge simulator
-    MockComet.sol                  # Compound V3 Comet mock
-    MockPendleRouter.sol           # Pendle Router mock
-  unit/
-    FortVault.registry.t.sol       # Protocol registry tests
-    FortVault.deposit.t.sol        # Deposit dispatch tests
-    FortVault.withdraw.t.sol       # Withdraw dispatch tests
-    FortVault.rebalance.t.sol      # Rebalance flow tests
-    FortVault.access.t.sol         # Access control tests
-    FortVault.swapAndDeposit.t.sol # Swap+deposit: happy path, reverts, admin (22 tests)
-    LiFiAdapter.t.sol              # Adapter unit tests
-    CompoundV3Adapter.t.sol        # CompoundV3 adapter unit tests
-    PendleAdapter.t.sol            # Pendle adapter unit tests
-    CrossChainRouter.t.sol         # Cross-chain router tests (76 tests)
-  fork/
-    FortVault.morpho.fork.t.sol    # Morpho on Base mainnet
-    FortVault.lifi.fork.t.sol      # LiFi on Base mainnet
-    CompoundV3Fork.t.sol           # CompoundV3 on Base mainnet
-    PendleFork.t.sol               # Pendle on Base mainnet
-    FluidFork.t.sol                # Fluid on Base mainnet
-    EulerFork.t.sol                # Euler on Base mainnet
-  fuzz/
-    FortVault.fuzz.t.sol           # Fuzz: amounts, roundtrips, value preservation
-    FortVault.swapAndDeposit.fuzz.t.sol # Fuzz: swap amounts, BPS split proportions
-    LiFiAdapter.fuzz.t.sol         # Fuzz: amount override, slippage
+  unit/  fuzz/  invariant/  gas/  fork/  mocks/  helpers/
 ```
+
+`fork/` needs `MONAD_RPC_URL` and is excluded from the default CI run. The LiFi, Aave and
+shMonad fork suites pass against live Monad; the Euler / Fluid / Morpho /
+PendleStrategyAdapter suites still carry Base fixtures and fail.
+
+---
 
 ## Usage
 
-### Build
+### Build and test
 
 ```shell
 forge build
+forge test --no-match-path "test/fork/*"        # 632 tests, no RPC needed
 ```
 
-### Test (Unit + Fuzz)
+### Fork tests
 
 ```shell
-forge test --match-path "test/unit/*" -vvv
-forge test --match-path "test/fuzz/*" -vvv
+export MONAD_RPC_URL=https://rpc.monad.xyz
+forge test --match-path "test/fork/*"
 ```
 
-### Test (Fork — requires Base RPC)
+### Gas envelopes — Monad Foundry only
 
 ```shell
-BASE_RPC_URL=https://mainnet.base.org forge test --match-path "test/fork/*" -vvv
+foundryup --network monad
+forge test --match-path "test/gas/*" -vv
 ```
 
-### Run All Tests
+### Address-book integrity
 
 ```shell
-BASE_RPC_URL=https://mainnet.base.org forge test -vvv
+./script/ci/check-address-literals.sh
 ```
 
-### Deploy (Base Mainnet)
+### Deploy — mainnet 143 only
+
+Testnet 10143 is rejected by the script: none of the protocol addresses exist there.
 
 ```shell
-# Set environment variables
-cp .env.example .env
-# Edit .env with your PRIVATE_KEY (with 0x prefix), BASE_RPC_URL, BASESCAN_API_KEY
-
-# Dry run (simulation only)
-source .env && forge script script/DeployBase.s.sol:DeployBase --rpc-url base -vvvv
-
-# Live deployment
-source .env && forge script script/DeployBase.s.sol:DeployBase --rpc-url base --broadcast -vvvv
+cp .env.example .env      # PRIVATE_KEY, MONAD_RPC_URL
+source .env && forge script script/DeployMonad.s.sol --rpc-url $MONAD_RPC_URL              # simulate
+source .env && forge script script/DeployMonad.s.sol --rpc-url $MONAD_RPC_URL --broadcast  # live
 ```
 
-### Post-Deploy Verification
+Then run [`VerifyDeployment.s.sol`](script/VerifyDeployment.s.sol) — read-only, no key
+required. Command and the current deployment's env block are in [`DEPLOYMENT.md`](DEPLOYMENT.md).
 
-```shell
-# Add deployed addresses to .env:
-#   VAULT_PROXY=0x...
-#   LIFI_ADAPTER=0x...
-#   CROSS_CHAIN_ROUTER=0x...
+### Registering a protocol post-deploy
 
-source .env && forge script script/PostDeploy.s.sol:PostDeploy --rpc-url base -vvvv
+No upgrade required:
+
+```solidity
+// ERC-4626 venue — register the vault directly
+vault.registerProtocol("Euler", 0x1905EDDF5943ef6C92Ccf1469bd40fC2cB4A77b0, true);
+
+// Non-ERC-4626 — deploy an adapter, register the adapter
+vault.registerProtocol("Aave", address(aaveAdapter), false);
+
+vault.removeProtocol("Euler");
 ```
 
-### Verify Contracts on BaseScan
+Adapter ids `3`, `4` and `5` are **reserved and must stay empty** — see
+[`PENDING.md`](src/adapters/PENDING.md). Aave was added under explicit operator
+instruction and did not consume one.
 
-```shell
-source .env && forge verify-contract <IMPL_ADDRESS> src/FortVault.sol:FortVault \
-  --chain base --etherscan-api-key $BASESCAN_API_KEY --watch
+### Opening the swap paths
 
-source .env && forge verify-contract <ADAPTER_ADDRESS> src/adapters/LiFiAdapter.sol:LiFiAdapter \
-  --chain base --etherscan-api-key $BASESCAN_API_KEY \
-  --constructor-args $(cast abi-encode "constructor(address,address,address)" $USDC $LIFI $DEPLOYER) --watch
+Every swap reverts `UnauthorizedSelector` until the allowlist is populated on **both**
+`LiFiAdapter` and `FortSwapRouter`:
 
-source .env && forge verify-contract <ROUTER_ADDRESS> src/CrossChainRouter.sol:CrossChainRouter \
-  --chain base --etherscan-api-key $BASESCAN_API_KEY \
-  --constructor-args $(cast abi-encode "constructor(address,address,address,address)" $USDC $LIFI $DEPLOYER $KEEPER) --watch
+```solidity
+lifiAdapter.setApprovedDex(dexRouter, true);
+lifiAdapter.setApprovedSwapSelector(0x........, true);   // read off a live chain-143 quote
+swapRouter.setApprovedDex(dexRouter, true);
+swapRouter.setApprovedSwapSelector(0x........, true);
 ```
+
+Selectors belong to the venues LI.FI routes *through* (KyberSwap, OpenOcean, Eisen,
+Monorail, Kuru) — not to the diamond. Verify each one before trusting it; guessing is
+exactly what the BaseSwap address collision already punished once.
+
+---
+
+## Further reading
+
+| Document | Contents |
+|---|---|
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | The live Monad deployment — addresses, verification output, outstanding items |
+| [`SUBMISSION.md`](SUBMISSION.md) | Port state, phase by phase, with evidence |
+| [`DECISIONS.md`](DECISIONS.md) | Every divergence from Base, with rationale (D0-1 … D4-13) |
+| [`ADDRESSES.md`](ADDRESSES.md) | Address book with per-address verification evidence |
+| [`RESEARCH.md`](RESEARCH.md) | Phase 0 findings, EVM probes, adapter matrix, open questions |
+| [`docs/gas-model.md`](docs/gas-model.md) | Measured cost curve, `MAX_STEPS` derivation, per-adapter envelopes |
 
 ## Dependencies
 
@@ -441,13 +478,3 @@ source .env && forge verify-contract <ROUTER_ADDRESS> src/CrossChainRouter.sol:C
 ## License
 
 MIT
-
-Strategy: BalancedStrategy                                                                              
-  Address: 0x39359f714D5C845c92b754512214217F6684a1A0                                                     
-  USDC Invested: 2 USDC                                                                                   
-  Split: 1 Morpho / 1 Aave                                                                                
-  ────────────────────────────────────────                                                                
-  Strategy: DynamicYieldStrategy                                                                          
-  Address: 0xfa8ae2567Aec041d5EB473570C5AaA10C2DE9231                                                     
-  USDC Invested: 2 USDC
-  Split: 1 Morpho / 1 Aave
