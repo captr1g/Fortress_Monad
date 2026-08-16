@@ -19,6 +19,15 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
     address internal user = address(0xA1);
     address internal nonOwner = address(0xB1);
+
+    /// @dev A LI.FI leg's `callTo`/`approveTo` is the DEX, never the diamond.
+    ///      Kept distinct so a test cannot pass by conflating them — the Base-era
+    ///      `approveTo == lifiDiamond` rule survived CI precisely because they were.
+    address internal dex = address(0xDE);
+
+    /// @dev Stand-in for a venue's swap entry point. Never executed: the mock
+    ///      diamond simulates the leg rather than calling into it.
+    bytes4 internal constant DEX_SELECTOR = bytes4(keccak256("swap(address,address,uint256,uint256)"));
     bytes32 internal key4626;
     bytes32 internal keyAdapter;
     bytes32 internal keyAdapterEx;
@@ -51,7 +60,9 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
             address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
         );
         swapRouter = FortSwapRouter(address(routerProxy));
-        swapRouter.setApprovedDex(address(lifi), true);
+        // I5 is two allowlists, not one: the leg's target AND its selector.
+        swapRouter.setApprovedDex(dex, true);
+        swapRouter.setApprovedSwapSelector(DEX_SELECTOR, true);
     }
 
     // ──────────── Helpers ────────────
@@ -65,12 +76,12 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
     function _defaultSwapData(uint256 amount) internal view returns (LibSwap.SwapData[] memory) {
         LibSwap.SwapData[] memory swaps = new LibSwap.SwapData[](1);
         swaps[0] = LibSwap.SwapData({
-            callTo: address(lifi),
-            approveTo: address(lifi),
+            callTo: dex,
+            approveTo: dex,
             sendingAssetId: address(weth),
             receivingAssetId: address(mockUsdc),
             fromAmount: amount,
-            callData: "",
+            callData: abi.encodePacked(DEX_SELECTOR),
             requiresDeposit: false
         });
         return swaps;
@@ -207,7 +218,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         lifi.setRate(0.5e6);
 
         vm.prank(user);
-        vm.expectRevert("slippage");
+        vm.expectRevert(abi.encodeWithSelector(MockLiFiDiamond.MockSlippage.selector, amount / 2, amount));
         swapRouter.swapAndDeposit(
             address(weth),
             amount,
@@ -239,16 +250,8 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         _mintWethAndApprove(user, amount);
 
         address badDex = address(0xBAD);
-        LibSwap.SwapData[] memory swaps = new LibSwap.SwapData[](1);
-        swaps[0] = LibSwap.SwapData({
-            callTo: badDex,
-            approveTo: address(lifi),
-            sendingAssetId: address(weth),
-            receivingAssetId: address(mockUsdc),
-            fromAmount: amount,
-            callData: "",
-            requiresDeposit: false
-        });
+        LibSwap.SwapData[] memory swaps = _defaultSwapData(amount);
+        swaps[0].callTo = badDex;
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedCallTo.selector, badDex));
@@ -260,20 +263,91 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         _mintWethAndApprove(user, amount);
 
         address badApprove = address(0xBAD);
-        LibSwap.SwapData[] memory swaps = new LibSwap.SwapData[](1);
-        swaps[0] = LibSwap.SwapData({
-            callTo: address(lifi),
-            approveTo: badApprove,
-            sendingAssetId: address(weth),
-            receivingAssetId: address(mockUsdc),
-            fromAmount: amount,
-            callData: "",
-            requiresDeposit: false
-        });
+        LibSwap.SwapData[] memory swaps = _defaultSwapData(amount);
+        swaps[0].approveTo = badApprove;
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedApproveTo.selector, badApprove));
         swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
+    }
+
+    /// @notice The diamond is not a valid leg target. The Base rule REQUIRED it to
+    ///         be `approveTo`, which is the shape that must now be rejected.
+    function test_swapAndDeposit_diamondAsApproveTo_reverts() public {
+        uint256 amount = 100e6;
+        _mintWethAndApprove(user, amount);
+
+        LibSwap.SwapData[] memory swaps = _defaultSwapData(amount);
+        swaps[0].approveTo = address(lifi);
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedApproveTo.selector, address(lifi)));
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
+    }
+
+    /// @notice I5 — an allowlisted router still exposes every other function it has.
+    function test_swapAndDeposit_unauthorizedSelector_reverts() public {
+        uint256 amount = 100e6;
+        _mintWethAndApprove(user, amount);
+
+        bytes4 bad = bytes4(keccak256("sweep(address)"));
+        LibSwap.SwapData[] memory swaps = _defaultSwapData(amount);
+        swaps[0].callData = abi.encodePacked(bad);
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedSelector.selector, bad));
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
+    }
+
+    /// @notice The route must actually end in USDC — that is what gets deposited.
+    function test_swapAndDeposit_routeEndAssetMismatch_reverts() public {
+        uint256 amount = 100e6;
+        _mintWethAndApprove(user, amount);
+
+        LibSwap.SwapData[] memory swaps = _defaultSwapData(amount);
+        swaps[0].receivingAssetId = address(weth);
+
+        vm.prank(user);
+        vm.expectRevert(FortSwapRouter.AssetMismatch.selector);
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
+    }
+
+    function test_swapAndDeposit_routeStartAssetMismatch_reverts() public {
+        uint256 amount = 100e6;
+        _mintWethAndApprove(user, amount);
+
+        MockUSDC other = new MockUSDC();
+        LibSwap.SwapData[] memory swaps = _defaultSwapData(amount);
+        swaps[0].sendingAssetId = address(other);
+
+        vm.prank(user);
+        vm.expectRevert(FortSwapRouter.AssetMismatch.selector);
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
+    }
+
+    /// @notice The selector list ships empty and must fail closed.
+    function test_swapAndDeposit_selectorAllowlistFailsClosed() public {
+        uint256 amount = 100e6;
+        _mintWethAndApprove(user, amount);
+
+        FortSwapRouter impl = new FortSwapRouter(address(mockUsdc), address(lifi));
+        FortSwapRouter fresh = FortSwapRouter(
+            address(
+                new ERC1967Proxy(
+                    address(impl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
+                )
+            )
+        );
+        fresh.setApprovedDex(dex, true); // addresses configured, selectors not
+
+        vm.prank(user);
+        weth.approve(address(fresh), amount);
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedSelector.selector, DEX_SELECTOR));
+        fresh.swapAndDeposit(
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
+        );
     }
 
     function test_swapAndDeposit_unknownProtocol_reverts() public {

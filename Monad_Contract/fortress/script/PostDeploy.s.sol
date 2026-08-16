@@ -22,7 +22,7 @@ contract PostDeploy is Script {
         address swapRouterAddr = vm.envAddress("SWAP_ROUTER");
 
         FortVault vault = FortVault(vaultProxy);
-        LiFiAdapter lifiAdapter = LiFiAdapter(lifiAdapterAddr);
+        LiFiAdapter lifiAdapter = LiFiAdapter(payable(lifiAdapterAddr));
         CrossChainRouter ccRouter = CrossChainRouter(ccRouterAddr);
         FortSwapRouter swapRouter = FortSwapRouter(swapRouterAddr);
 

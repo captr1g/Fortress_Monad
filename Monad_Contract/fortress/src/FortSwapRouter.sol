@@ -29,6 +29,11 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
     mapping(address => bool) public isApprovedDex;
     address public vault;
 
+    /// @notice Function selectors a LI.FI leg's `callData` may carry (I5).
+    /// @dev Appended after `vault` so the existing slot assignment is untouched;
+    ///      `__gap` shrinks by one to compensate. Starts empty — fails closed.
+    mapping(bytes4 => bool) public isApprovedSwapSelector;
+
     // ──────────── Structs ────────────
 
     struct SwapDepositEntry {
@@ -44,6 +49,7 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
         address indexed user, address indexed inputToken, uint256 inputAmount, uint256 usdcReceived, uint256 entryCount
     );
     event DexApprovalUpdated(address indexed dex, bool approved);
+    event SwapSelectorApprovalUpdated(bytes4 indexed selector, bool approved);
     event VaultUpdated(address indexed oldVault, address indexed newVault);
 
     // ──────────── Errors ────────────
@@ -53,6 +59,8 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
     error InvalidBps();
     error UnauthorizedCallTo(address target);
     error UnauthorizedApproveTo(address target);
+    error UnauthorizedSelector(bytes4 selector);
+    error AssetMismatch();
     error DeadlineExpired();
     error InputTokenIsUsdc();
     error ProtocolNotFound(bytes32 key);
@@ -80,9 +88,20 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
     //                    OWNER: CONFIG
     // ══════════════════════════════════════════════════════════════
 
+    /// @notice Allow or revoke a contract as a LI.FI leg's `callTo` / `approveTo`.
     function setApprovedDex(address dex, bool approved) external onlyOwner {
+        if (dex == address(0)) revert ZeroAddress();
         isApprovedDex[dex] = approved;
         emit DexApprovalUpdated(dex, approved);
+    }
+
+    /// @notice Allow or revoke a function selector inside a leg's `callData` (I5).
+    /// @dev Starts empty: an allowlisted router still exposes every other function
+    ///      it has, so the address list alone is not a gate. Fails closed until the
+    ///      operator populates it from verified per-venue selectors.
+    function setApprovedSwapSelector(bytes4 selector, bool approved) external onlyOwner {
+        isApprovedSwapSelector[selector] = approved;
+        emit SwapSelectorApprovalUpdated(selector, approved);
     }
 
     function setVault(address _vault) external onlyOwner {
@@ -135,12 +154,26 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
         }
 
         // Step 3: Copy swapData to memory + validate security
+        //
+        // `approveTo` is allowlisted, NOT compared to the diamond. In LI.FI it is
+        // the spender the diamond approves for a leg — the DEX, or a DEX's separate
+        // token-transfer proxy — never the diamond itself. The Base-era rule
+        // `approveTo == lifiDiamond` rejected every live quote.
+        if (swapData.length == 0) revert ZeroAmount();
         LibSwap.SwapData[] memory _swaps = new LibSwap.SwapData[](swapData.length);
         for (uint256 i; i < swapData.length; i++) {
             _swaps[i] = swapData[i];
             if (!isApprovedDex[_swaps[i].callTo]) revert UnauthorizedCallTo(_swaps[i].callTo);
-            if (_swaps[i].approveTo != lifiDiamond) revert UnauthorizedApproveTo(_swaps[i].approveTo);
+            if (!isApprovedDex[_swaps[i].approveTo]) revert UnauthorizedApproveTo(_swaps[i].approveTo);
+            // I5: target AND selector. An address allowlist alone was an audit finding.
+            if (_swaps[i].callData.length < 4) revert UnauthorizedSelector(bytes4(0));
+            bytes4 legSelector = bytes4(_swaps[i].callData);
+            if (!isApprovedSwapSelector[legSelector]) revert UnauthorizedSelector(legSelector);
         }
+        // Pin the route's ends to the tokens this function actually moves.
+        if (_swaps[0].sendingAssetId != inputToken) revert AssetMismatch();
+        if (_swaps[_swaps.length - 1].receivingAssetId != address(usdc)) revert AssetMismatch();
+        // I6: the router's amount wins over whatever the route was quoted with.
         _swaps[0].fromAmount = inputAmount;
 
         // Step 4: Pull input token from user
@@ -150,15 +183,24 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
         IERC20(inputToken).forceApprove(lifiDiamond, inputAmount);
         uint256 usdcBefore = usdc.balanceOf(address(this));
 
-        ILiFiGenericSwapFacet(lifiDiamond)
-            .swapTokensGeneric(
-                keccak256(abi.encodePacked(msg.sender, block.timestamp)),
-                "fortress",
-                "fortress",
-                payable(address(this)),
-                minUsdcOut,
-                _swaps
-            );
+        // GenericSwapFacetV3. Both sides are ERC-20 here — the input is any token
+        // except USDC, the output is USDC — so the variant follows from the leg
+        // count alone and needs no caller-supplied discriminator.
+        // `swapTokensGeneric` (0x4630a0d8), which this called on Base, is NOT
+        // registered on the Monad diamond (DECISIONS.md D0-5).
+        {
+            bytes32 txId = keccak256(abi.encodePacked(msg.sender, block.timestamp));
+            ILiFiGenericSwapFacetV3 diamond = ILiFiGenericSwapFacetV3(lifiDiamond);
+            if (_swaps.length == 1) {
+                diamond.swapTokensSingleV3ERC20ToERC20(
+                    txId, "fortress", "fortress", payable(address(this)), minUsdcOut, _swaps[0]
+                );
+            } else {
+                diamond.swapTokensMultipleV3ERC20ToERC20(
+                    txId, "fortress", "fortress", payable(address(this)), minUsdcOut, _swaps
+                );
+            }
+        }
 
         uint256 usdcReceived = usdc.balanceOf(address(this)) - usdcBefore;
         if (usdcReceived < minUsdcOut) revert SlippageExceeded(usdcReceived, minUsdcOut);
@@ -245,5 +287,6 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
     //                    STORAGE GAP
     // ══════════════════════════════════════════════════════════════
 
-    uint256[50] private __gap;
+    /// @dev 49, not 50 — `isApprovedSwapSelector` consumed one slot.
+    uint256[49] private __gap;
 }

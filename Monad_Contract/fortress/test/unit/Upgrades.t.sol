@@ -90,7 +90,7 @@ contract UpgradesTest is Test {
             LiFiAdapter impl = new LiFiAdapter(address(mockUsdc), mockLifi);
             ERC1967Proxy proxy =
                 new ERC1967Proxy(address(impl), abi.encodeCall(LiFiAdapter.initialize, (owner, mockVault)));
-            lifiAdapter = LiFiAdapter(address(proxy));
+            lifiAdapter = LiFiAdapter(payable(address(proxy)));
         }
         // 9. PendleAdapter
         {

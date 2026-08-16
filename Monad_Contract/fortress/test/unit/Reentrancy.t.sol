@@ -57,6 +57,9 @@ contract ReentrantWithdrawer is IReentryHook {
     }
 }
 
+/// @dev Stand-in for a venue's swap entry point, allowlisted in setUp.
+bytes4 constant DEX_SELECTOR = bytes4(keccak256("swap(address,address,uint256,uint256)"));
+
 /// @notice Hook that tries to re-enter FortSwapRouter.swapAndDeposit
 contract ReentrantSwapper is IReentryHook {
     FortSwapRouter public router;
@@ -90,7 +93,7 @@ contract ReentrantSwapper is IReentryHook {
             sendingAssetId: address(inputToken),
             receivingAssetId: address(usdc),
             fromAmount: 1,
-            callData: "",
+            callData: abi.encodePacked(DEX_SELECTOR),
             requiresDeposit: false
         });
 
@@ -201,7 +204,10 @@ contract ReentrancyTest is Test {
             address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(swapVault)))
         );
         FortSwapRouter swapRouter = FortSwapRouter(address(routerProxy));
+        // Both halves of I5 must pass, or validation rejects the route before the
+        // transferFrom that fires the re-entry hook this test depends on.
         swapRouter.setApprovedDex(address(lifi), true);
+        swapRouter.setApprovedSwapSelector(DEX_SELECTOR, true);
 
         // Create attacker
         ReentrantSwapper attacker = new ReentrantSwapper(swapRouter, reentrantWeth, lifi, usdc, protocolKey);
@@ -220,7 +226,7 @@ contract ReentrancyTest is Test {
             sendingAssetId: address(reentrantWeth),
             receivingAssetId: address(usdc),
             fromAmount: 100e6,
-            callData: "",
+            callData: abi.encodePacked(DEX_SELECTOR),
             requiresDeposit: false
         });
 

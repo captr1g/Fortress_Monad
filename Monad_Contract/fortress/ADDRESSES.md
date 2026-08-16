@@ -148,7 +148,12 @@ Diamond exposes **21 facets / 87 selectors** (`facets()` loupe call).
 | `swapTokensMultipleV3ERC20ToERC20` | `0x5fd9ae2e` | yes |
 | `swapTokensMultipleV3ERC20ToNative` | `0x2c57e884` | yes |
 | `swapTokensMultipleV3NativeToERC20` | `0x736eac0b` | yes |
-| **`swapTokensGeneric`** (what our `LiFiAdapter` calls) | **`0x4630a0d8`** | **NOT REGISTERED** |
+| ~~**`swapTokensGeneric`**~~ (what the Base `LiFiAdapter` called) | **`0x4630a0d8`** | **NOT REGISTERED** |
+
+Re-confirmed in Phase 4 with the diamond's own EIP-2535 loupe, and now asserted in CI
+by `test/fork/FortVault.lifi.fork.t.sol` rather than recorded only here:
+`facetAddress(0x4630a0d8)` → `0x0000…0000`; all six V3 selectors → the facet above.
+The rewritten `LiFiAdapter` dispatches to all six (`DECISIONS.md` D4-1).
 
 Live `li.quest` quote (USDC→WMON, chain 143, 1000 USDC) returned
 `to = 0x026F25…9C37`, `data` selector **`0x5fd9ae2e`** — i.e. LI.FI itself routes
@@ -162,6 +167,16 @@ diamond, selector `0x17917a4e` (facet `0xf581a8bfead9dd999298cc0ea0f7d11c3cb92a5
 Bridges advertised for chain 143: `across, mayan, mayanMCTP, glacis, gasZipBridge,
 relaydepository, mayanFastMCTP, unit, polymer, polymerStandard, near, layerswap`.
 DEX/aggregators on 143: `eisen, openocean, kyberswap, sushiswap, fly, monorail, kuru`.
+
+---
+
+## 5.3 Native-MON sentinel — not an address
+
+`MonadAddresses.NATIVE` = `0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE` is **not a
+deployed contract** and has no verification row: it is FORTRESS's marker for "native
+MON, not an ERC-20", matching what `SHMONAD.asset()` returns. It lives in
+`MonadAddresses` only because CI forbids 40-hex literals elsewhere. See `DECISIONS.md`
+D4-4.
 
 ---
 

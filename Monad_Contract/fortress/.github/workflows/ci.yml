@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Address book integrity — port prompt §7.
+  # Cheap and fast, so it runs first and gates nothing else on a slow build.
+  # ---------------------------------------------------------------------------
+  address-literals:
+    name: No address literals outside MonadAddresses.sol
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check address literals
+        run: ./script/ci/check-address-literals.sh
+
+  # ---------------------------------------------------------------------------
+  # Build + test under UPSTREAM Foundry.
+  #
+  # Correctness only. Gas numbers from this job are NOT authoritative: Phase 0
+  # measured upstream at ~2,165 gas per marginal cold SLOAD versus Monad's
+  # ~8,300 — a 3.85x under-report (RESEARCH.md §3, DECISIONS.md D0-3).
+  # ---------------------------------------------------------------------------
+  test:
+    name: Build and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Forge fmt
+        run: forge fmt --check
+
+      - name: Forge build
+        run: forge build --sizes
+
+      - name: Forge test (excluding fork tests)
+        # Fork tests are re-pointed at Monad in Phase 2 and need MONAD_RPC_URL.
+        run: forge test --no-match-path "test/fork/*" -vvv
+
+  # ---------------------------------------------------------------------------
+  # Coverage.
+  # ---------------------------------------------------------------------------
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - name: Forge coverage
+        run: forge coverage --no-match-path "test/fork/*" --report summary
+
+  # ---------------------------------------------------------------------------
+  # Gas envelopes (invariant I13) and gas regression gate.
+  #
+  # Runs ONLY under Monad Foundry. Phase 0 measured upstream Foundry at ~2,165
+  # gas per marginal cold SLOAD against Monad's ~8,300 — a 3.85x under-report on
+  # exactly the operation FORTRESS does most. Gas numbers from the `test` job
+  # above are NOT accepted as evidence for I13.
+  #
+  # Enabled in Phase 3 alongside test/gas/ and docs/gas-model.md.
+  # ---------------------------------------------------------------------------
+  gas:
+    name: Gas envelopes I13 (Monad Foundry)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Monad Foundry
+        run: |
+          curl -L https://foundry.category.xyz | bash
+          "$HOME/.foundry/bin/foundryup" --network monad
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+
+      - name: Show Forge version (must be the Monad fork)
+        run: forge --version
+
+      # Guard: proves the Monad gas schedule is actually active. foundry.toml sets
+      # network = "monad", but that key is silently ignored by upstream Foundry, so
+      # a mis-provisioned runner would otherwise report Ethereum prices as if they
+      # were Monad's. Fails loudly instead.
+      - name: Assert Monad gas schedule is active
+        run: |
+          OUT=$(forge test --match-path "test/gas/ColdSloadPricing.t.sol" -vv)
+          echo "$OUT"
+          MARGINAL=$(echo "$OUT" | sed -n 's/.*marginal per cold SLOAD: \([0-9]*\).*/\1/p')
+          echo "marginal cold SLOAD = $MARGINAL"
+          if [ "$MARGINAL" -lt 7000 ]; then
+            echo "::error::Ethereum gas schedule detected ($MARGINAL). Expected Monad (~8100)."
+            exit 1
+          fi
+
+      - name: Gas envelope assertions
+        run: forge test --match-path "test/gas/*" -vv
+
+      - name: Gas snapshot diff
+        run: forge snapshot --diff --no-match-path "test/fork/*"
+
+  # ---------------------------------------------------------------------------
+  # Static analysis. Non-blocking for now — Phase 8 is the security phase and
+  # will triage and enforce these.
+  # ---------------------------------------------------------------------------
+  static-analysis:
+    name: Slither
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: crytic/slither-action@v0.4.0
+        with:
+          fail-on: none
+          slither-args: --filter-paths "lib/|test/"

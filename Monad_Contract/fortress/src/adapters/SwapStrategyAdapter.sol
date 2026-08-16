@@ -118,7 +118,13 @@ contract SwapStrategyAdapter is
         address,
         /* beneficiary */
         bytes calldata data
-    ) external onlyExecutor whenNotPaused nonReentrant returns (address tokenOut, uint256 amountOut) {
+    )
+        external
+        onlyExecutor
+        whenNotPaused
+        nonReentrant
+        returns (address tokenOut, uint256 amountOut)
+    {
         if (action != ActionType.SWAP) revert UnsupportedAction();
 
         (address dex, address outToken, uint256 minAmountOut, bool useFullBalance, bytes memory swapCalldata) =

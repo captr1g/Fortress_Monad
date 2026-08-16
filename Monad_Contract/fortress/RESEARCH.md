@@ -436,9 +436,12 @@ recoverable. The repository currently has **zero commits**, so this must happen 
 3. **Pendle/Morpho expiry policy.** `PT-USDat-27AUG2026` expires in 11 days but holds the
    2nd-largest Morpho supply on the chain. Should near-expiry markets be excluded by a
    hard rule (e.g. ≥90 days remaining), or curated manually?
-4. **`LiFiAdapter` rewrite scope** (§7). Six V3 variants exist. Support only
+4. ~~**`LiFiAdapter` rewrite scope** (§7). Six V3 variants exist. Support only
    `swapTokensSingleV3ERC20ToERC20` + `swapTokensMultipleV3ERC20ToERC20` (the USDC-centric
-   path FORTRESS actually needs), or all six including native-MON legs?
+   path FORTRESS actually needs), or all six including native-MON legs?~~
+   **ANSWERED (Phase 4): all six.** shMONAD's `asset()` is the native-MON sentinel, so
+   the ERC20↔native variants are a hard dependency of the shMonad adapter, not optional.
+   See `DECISIONS.md` D4-1.
 5. **Baseline tag** before Phase 1 mutates the tree (§12).
 6. **Hardcoded private key** `0x20832bda…79dd` at `Monad_frontend/tests/pendle-e2e.ts:34`
    and `pendle-standalone-buy.ts:27` — not a standard Anvil key. Repo has zero commits,

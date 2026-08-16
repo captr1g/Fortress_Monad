@@ -32,7 +32,10 @@ contract MockStrategyAdapter is IStrategyAdapter {
         address,
         /* beneficiary */
         bytes calldata data
-    ) external returns (address tokenOut, uint256 amountOut) {
+    )
+        external
+        returns (address tokenOut, uint256 amountOut)
+    {
         lastAmountIn = amount;
         lastToken = token;
         lastAction = action;

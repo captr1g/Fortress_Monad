@@ -119,7 +119,13 @@ contract PendleStrategyAdapter is
         address,
         /* beneficiary */
         bytes calldata data
-    ) external onlyExecutor whenNotPaused nonReentrant returns (address tokenOut, uint256 amountOut) {
+    )
+        external
+        onlyExecutor
+        whenNotPaused
+        nonReentrant
+        returns (address tokenOut, uint256 amountOut)
+    {
         if (action != ActionType.SWAP) revert UnsupportedAction();
 
         uint8 subAction = abi.decode(data[:32], (uint8));

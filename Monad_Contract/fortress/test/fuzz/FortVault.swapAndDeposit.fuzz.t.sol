@@ -14,6 +14,10 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
     MockFortProtocol internal adapter;
     MockFortProtocolEx internal adapterEx;
     MockLiFiDiamond internal lifi;
+
+    /// @dev A LI.FI leg targets the DEX, never the diamond.
+    address internal dex = address(0xDE);
+    bytes4 internal constant DEX_SELECTOR = bytes4(keccak256("swap(address,address,uint256,uint256)"));
     MockUSDC internal weth;
     FortSwapRouter internal swapRouter;
 
@@ -47,18 +51,20 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
             address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
         );
         swapRouter = FortSwapRouter(address(routerProxy));
-        swapRouter.setApprovedDex(address(lifi), true);
+        // I5 is two allowlists: the leg's target AND its selector.
+        swapRouter.setApprovedDex(dex, true);
+        swapRouter.setApprovedSwapSelector(DEX_SELECTOR, true);
     }
 
     function _makeSwapData(uint256 amount) internal view returns (LibSwap.SwapData[] memory) {
         LibSwap.SwapData[] memory swaps = new LibSwap.SwapData[](1);
         swaps[0] = LibSwap.SwapData({
-            callTo: address(lifi),
-            approveTo: address(lifi),
+            callTo: dex,
+            approveTo: dex,
             sendingAssetId: address(weth),
             receivingAssetId: address(mockUsdc),
             fromAmount: amount,
-            callData: "",
+            callData: abi.encodePacked(DEX_SELECTOR),
             requiresDeposit: false
         });
         return swaps;
