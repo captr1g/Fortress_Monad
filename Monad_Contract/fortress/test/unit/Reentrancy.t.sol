@@ -31,8 +31,9 @@ contract ReentrantDepositor is IReentryHook {
         // Attempt re-entry — should revert with ReentrancyGuardReentrantCall
         bytes memory lifiData = abi.encodeCall(MockLiFiBridge.bridgeTokens, (1, 42161, address(this)));
         try router.depositCrossChain(1, 42161, lifiData, type(uint256).max) {
-            // If this succeeds, reentrancy guard failed
-        } catch {
+        // If this succeeds, reentrancy guard failed
+        }
+            catch {
             // Expected: reentrancy blocked
         }
     }
@@ -48,8 +49,9 @@ contract ReentrantWithdrawer is IReentryHook {
 
     function reenter() external override {
         try router.initiateWithdraw(100, 0, 42161, type(uint256).max) {
-            // If this succeeds, reentrancy guard failed
-        } catch {
+        // If this succeeds, reentrancy guard failed
+        }
+            catch {
             // Expected
         }
     }
@@ -97,8 +99,9 @@ contract ReentrantSwapper is IReentryHook {
 
         // Attempt re-entry — should revert with ReentrancyGuardReentrantCall
         try router.swapAndDeposit(address(inputToken), 1, 0, type(uint256).max, swaps, entries) {
-            // If this succeeds, reentrancy guard failed
-        } catch {
+        // If this succeeds, reentrancy guard failed
+        }
+            catch {
             // Expected: reentrancy blocked
         }
     }

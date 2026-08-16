@@ -108,14 +108,15 @@ contract LiFiAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradeabl
         usdc.safeTransferFrom(msg.sender, address(this), usdcAmount);
         usdc.forceApprove(lifiDiamond, usdcAmount);
 
-        ILiFiGenericSwapFacet(lifiDiamond).swapTokensGeneric(
-            keccak256(abi.encodePacked(block.timestamp, receiver, usdcAmount)),
-            "FortVault",
-            "FortVault",
-            payable(receiver),
-            minOut,
-            swapData
-        );
+        ILiFiGenericSwapFacet(lifiDiamond)
+            .swapTokensGeneric(
+                keccak256(abi.encodePacked(block.timestamp, receiver, usdcAmount)),
+                "FortVault",
+                "FortVault",
+                payable(receiver),
+                minOut,
+                swapData
+            );
 
         // Clear residual approval
         usdc.forceApprove(lifiDiamond, 0);
@@ -153,14 +154,15 @@ contract LiFiAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradeabl
         // Fix #3: Route through adapter to avoid receiver manipulation
         uint256 balBefore = usdc.balanceOf(address(this));
 
-        ILiFiGenericSwapFacet(lifiDiamond).swapTokensGeneric(
-            keccak256(abi.encodePacked(block.timestamp, receiver, shares)),
-            "FortVault",
-            "FortVault",
-            payable(address(this)),
-            minUsdcOut,
-            swapData
-        );
+        ILiFiGenericSwapFacet(lifiDiamond)
+            .swapTokensGeneric(
+                keccak256(abi.encodePacked(block.timestamp, receiver, shares)),
+                "FortVault",
+                "FortVault",
+                payable(address(this)),
+                minUsdcOut,
+                swapData
+            );
 
         usdcOut = usdc.balanceOf(address(this)) - balBefore;
 
@@ -208,14 +210,15 @@ contract LiFiAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradeabl
         // Track output balance before swap
         uint256 balBefore = IERC20(outputToken).balanceOf(address(this));
 
-        ILiFiGenericSwapFacet(lifiDiamond).swapTokensGeneric(
-            keccak256(abi.encodePacked(block.timestamp, msg.sender, inputAmount)),
-            "Fortress",
-            "Fortress",
-            payable(address(this)),
-            minOutputAmount,
-            _swaps
-        );
+        ILiFiGenericSwapFacet(lifiDiamond)
+            .swapTokensGeneric(
+                keccak256(abi.encodePacked(block.timestamp, msg.sender, inputAmount)),
+                "Fortress",
+                "Fortress",
+                payable(address(this)),
+                minOutputAmount,
+                _swaps
+            );
 
         uint256 received = IERC20(outputToken).balanceOf(address(this)) - balBefore;
         if (received < minOutputAmount) revert SlippageExceeded(received, minOutputAmount);

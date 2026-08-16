@@ -18,6 +18,18 @@ solc_version = "0.8.26"
 # See RESEARCH.md §2.
 evm_version = "cancun"
 
+# network: selects Monad's opcode gas schedule in the LOCAL test EVM.
+#
+# REQUIRED FOR CORRECT GAS NUMBERS. Installing Monad Foundry is NOT sufficient on
+# its own — without this, `forge test` silently prices cold SLOAD at Ethereum's
+# 2,100 instead of Monad's 8,100. Measured directly by
+# test/gas/ColdSloadPricing.t.sol:
+#     network unset      -> marginal cold SLOAD 2,162   (Ethereum schedule)
+#     network = "monad"  -> marginal cold SLOAD 8,162   (Monad schedule)
+# The latter matches the ~8,300 measured against live Monad RPC in Phase 0.
+# Requires the Monad fork: foundryup --network monad.
+network = "monad"
+
 # via_ir: RETAINED, but no longer justified by the contract-size limit.
 # Phase 0 measured FortStrategyExecutor at 14,497 bytes — under even Base's 24 KB
 # cap and far under Monad's 128 KB. It is kept only for its optimisation behaviour

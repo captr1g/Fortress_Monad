@@ -65,8 +65,9 @@ contract UpgradesTest is Test {
         // 4. MorphoStrategyAdapter
         {
             MorphoStrategyAdapter impl = new MorphoStrategyAdapter(mockMorpho);
-            ERC1967Proxy proxy =
-                new ERC1967Proxy(address(impl), abi.encodeCall(MorphoStrategyAdapter.initialize, (mockExecutor, owner)));
+            ERC1967Proxy proxy = new ERC1967Proxy(
+                address(impl), abi.encodeCall(MorphoStrategyAdapter.initialize, (mockExecutor, owner))
+            );
             morphoAdapter = MorphoStrategyAdapter(address(proxy));
         }
         // 5. SwapStrategyAdapter
@@ -79,8 +80,9 @@ contract UpgradesTest is Test {
         // 6. PendleStrategyAdapter
         {
             PendleStrategyAdapter impl = new PendleStrategyAdapter(mockMorpho);
-            ERC1967Proxy proxy =
-                new ERC1967Proxy(address(impl), abi.encodeCall(PendleStrategyAdapter.initialize, (mockExecutor, owner)));
+            ERC1967Proxy proxy = new ERC1967Proxy(
+                address(impl), abi.encodeCall(PendleStrategyAdapter.initialize, (mockExecutor, owner))
+            );
             pendleStrategyAdapter = PendleStrategyAdapter(address(proxy));
         }
         // 8. LiFiAdapter

@@ -15,7 +15,7 @@ contract Withdraw is Script {
         uint256 pk = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(pk);
 
-        uint256 morphoShares = IERC20(MonadAddresses.VAULT_HYPER_USDCA).balanceOf(deployer);
+        uint256 morphoShares = IERC20(MonadAddresses.VAULT_HYPERITHM_USDC_APEX).balanceOf(deployer);
         uint256 usdcBefore = IERC20(MonadAddresses.USDC).balanceOf(deployer);
 
         console.log("Morpho shares:", morphoShares);
@@ -24,7 +24,7 @@ contract Withdraw is Script {
         vm.startBroadcast(pk);
 
         // Approve vault to pull share tokens
-        IERC20(MonadAddresses.VAULT_HYPER_USDCA).approve(vaultProxy, morphoShares);
+        IERC20(MonadAddresses.VAULT_HYPERITHM_USDC_APEX).approve(vaultProxy, morphoShares);
 
         // Build withdraw entries
         uint256 count;

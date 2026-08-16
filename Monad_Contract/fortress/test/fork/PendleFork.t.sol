@@ -73,11 +73,7 @@ contract PendleForkTest is Test, MonadFork {
         deal(USDC, user, amount);
 
         IPendleRouter.ApproxParams memory guess = IPendleRouter.ApproxParams({
-            guessMin: 0,
-            guessMax: type(uint256).max,
-            guessOffchain: 0,
-            maxIteration: 256,
-            eps: 1e15
+            guessMin: 0, guessMax: type(uint256).max, guessOffchain: 0, maxIteration: 256, eps: 1e15
         });
 
         bytes memory data = abi.encode(pendleMarket, uint256(0), guess, block.timestamp + 300);

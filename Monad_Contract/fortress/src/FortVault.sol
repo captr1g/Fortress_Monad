@@ -98,6 +98,14 @@ contract FortVault is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradea
     error ProtocolExists(bytes32 key);
     error ProtocolNotFound(bytes32 key);
     error SlippageExceeded(uint256 received, uint256 minimum);
+    /// @notice An ERC-4626 target cannot accept this deposit because it is at its cap.
+    /// @dev Phase 4 (Monad): every sizeable MetaMorpho V2 USDC vault on Monad currently
+    ///      reports `maxDeposit() == 0` (at cap, not gated — all four gate slots are
+    ///      address(0)). Without this check the vault's own revert would bubble up with
+    ///      no indication of WHICH entry failed, and would take the entire multi-protocol
+    ///      deposit down with it. This names the offender so the caller can retry without
+    ///      that entry.
+    error ProtocolAtCapacity(bytes32 key, uint256 requested, uint256 capacity);
     error FeeTooHigh();
     error NoFeeChangeQueued();
     error FeeChangeNotReady(uint48 executeAfter);
@@ -254,6 +262,12 @@ contract FortVault is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradea
             usdc.forceApprove(p.addr, entryAmount);
 
             if (p.isERC4626) {
+                // Capacity guard: fail with a precise, attributable error instead of
+                // letting the vault's own revert bubble up anonymously.
+                uint256 capacity = IERC4626(p.addr).maxDeposit(msg.sender);
+                if (entryAmount > capacity) {
+                    revert ProtocolAtCapacity(entries[i].protocolKey, entryAmount, capacity);
+                }
                 uint256 sharesOut = IERC4626(p.addr).deposit(entryAmount, msg.sender);
                 if (entries[i].minSharesOut != 0 && sharesOut < entries[i].minSharesOut) {
                     revert SlippageExceeded(sharesOut, entries[i].minSharesOut);
@@ -317,9 +331,8 @@ contract FortVault is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradea
             if (pFrom.isERC4626) {
                 usdcOut = IERC4626(pFrom.addr).redeem(entries[i].shares, address(this), msg.sender);
             } else if (entries[i].fromData.length > 0) {
-                usdcOut = IFortProtocolEx(pFrom.addr).redeemFor(
-                    entries[i].shares, address(this), msg.sender, entries[i].fromData
-                );
+                usdcOut = IFortProtocolEx(pFrom.addr)
+                    .redeemFor(entries[i].shares, address(this), msg.sender, entries[i].fromData);
             } else {
                 usdcOut = IFortProtocol(pFrom.addr).redeemFor(entries[i].shares, address(this), msg.sender);
             }
@@ -331,6 +344,13 @@ contract FortVault is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradea
             // Deposit into target → tokens to user
             usdc.forceApprove(pTo.addr, usdcOut);
             if (pTo.isERC4626) {
+                // Same capacity guard as deposit(): a rebalance INTO a capped vault
+                // would otherwise redeem the source position and then revert, which is
+                // atomic and therefore safe, but opaque about which leg failed.
+                uint256 toCapacity = IERC4626(pTo.addr).maxDeposit(msg.sender);
+                if (usdcOut > toCapacity) {
+                    revert ProtocolAtCapacity(entries[i].toProtocol, usdcOut, toCapacity);
+                }
                 uint256 sharesOut = IERC4626(pTo.addr).deposit(usdcOut, msg.sender);
                 if (entries[i].minSharesOut != 0 && sharesOut < entries[i].minSharesOut) {
                     revert SlippageExceeded(sharesOut, entries[i].minSharesOut);

@@ -55,11 +55,7 @@ contract MorphoLeverageExecutorForkTest is Test, MonadFork {
         (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
             IMorphoForkLev(MORPHO_BLUE).idToMarketParams(MARKET_ID);
         market = IMorphoBlue.MarketParams({
-            loanToken: loanToken,
-            collateralToken: collateralToken,
-            oracle: oracle,
-            irm: irm,
-            lltv: lltv
+            loanToken: loanToken, collateralToken: collateralToken, oracle: oracle, irm: irm, lltv: lltv
         });
 
         MorphoLeverageExecutor levImpl = new MorphoLeverageExecutor(MORPHO_BLUE);

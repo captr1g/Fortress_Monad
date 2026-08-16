@@ -112,13 +112,14 @@ contract PendleStrategyAdapter is
     ///
     ///   Sub-action 1 (Wrap LP → wrapped LP):
     ///     abi.encode(uint8(1), address wrapper, address wrappedToken)
-    function execute(ActionType action, address token, uint256 amount, address, /* beneficiary */ bytes calldata data)
-        external
-        onlyExecutor
-        whenNotPaused
-        nonReentrant
-        returns (address tokenOut, uint256 amountOut)
-    {
+    function execute(
+        ActionType action,
+        address token,
+        uint256 amount,
+        address,
+        /* beneficiary */
+        bytes calldata data
+    ) external onlyExecutor whenNotPaused nonReentrant returns (address tokenOut, uint256 amountOut) {
         if (action != ActionType.SWAP) revert UnsupportedAction();
 
         uint8 subAction = abi.decode(data[:32], (uint8));
@@ -190,7 +191,12 @@ contract PendleStrategyAdapter is
 
     // ──────────────────────────── Sub-action 1: Wrap LP ────────────────────────────
 
-    function _wrapLp(address token, uint256, /* amount */ bytes calldata data)
+    function _wrapLp(
+        address token,
+        uint256,
+        /* amount */
+        bytes calldata data
+    )
         internal
         returns (address tokenOut, uint256 amountOut)
     {

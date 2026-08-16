@@ -19,8 +19,7 @@ interface IFortStrategyExecutor {
         bytes data;
     }
 
-    function executeStrategy(address inputToken, uint256 inputAmount, Step[] calldata steps, uint256 deadline)
-        external;
+    function executeStrategy(address inputToken, uint256 inputAmount, Step[] calldata steps, uint256 deadline) external;
 
     function getAdapter(uint8 adapterId) external view returns (address);
 }

@@ -32,11 +32,7 @@ contract SwapStrategyAdapterFuzzTest is Test {
         adapter.setApprovedSwapSelector(MockDex.swapExact.selector, true);
     }
 
-    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut) internal view returns (bytes memory) {
         bytes memory swapCalldata =
             abi.encodeCall(MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), amountOut, address(adapter)));
         return abi.encode(

@@ -111,13 +111,14 @@ contract SwapStrategyAdapter is
     ///     of `token` and uses that as the swap input, regardless of what `amount` the
     ///     executor sent or what number is frozen in the calldata. Used for post-borrow swaps
     ///     where the exact amount is decided on-chain and differs from any build-time estimate.
-    function execute(ActionType action, address token, uint256 amount, address, /* beneficiary */ bytes calldata data)
-        external
-        onlyExecutor
-        whenNotPaused
-        nonReentrant
-        returns (address tokenOut, uint256 amountOut)
-    {
+    function execute(
+        ActionType action,
+        address token,
+        uint256 amount,
+        address,
+        /* beneficiary */
+        bytes calldata data
+    ) external onlyExecutor whenNotPaused nonReentrant returns (address tokenOut, uint256 amountOut) {
         if (action != ActionType.SWAP) revert UnsupportedAction();
 
         (address dex, address outToken, uint256 minAmountOut, bool useFullBalance, bytes memory swapCalldata) =

@@ -67,11 +67,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
 
     function _market(address collateral, address oracle) internal view returns (IMorphoBlue.MarketParams memory) {
         return IMorphoBlue.MarketParams({
-            loanToken: address(usdc),
-            collateralToken: collateral,
-            oracle: oracle,
-            irm: address(0),
-            lltv: LLTV_915
+            loanToken: address(usdc), collateralToken: collateral, oracle: oracle, irm: address(0), lltv: LLTV_915
         });
     }
 

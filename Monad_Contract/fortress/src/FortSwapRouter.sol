@@ -150,14 +150,15 @@ contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpg
         IERC20(inputToken).forceApprove(lifiDiamond, inputAmount);
         uint256 usdcBefore = usdc.balanceOf(address(this));
 
-        ILiFiGenericSwapFacet(lifiDiamond).swapTokensGeneric(
-            keccak256(abi.encodePacked(msg.sender, block.timestamp)),
-            "fortress",
-            "fortress",
-            payable(address(this)),
-            minUsdcOut,
-            _swaps
-        );
+        ILiFiGenericSwapFacet(lifiDiamond)
+            .swapTokensGeneric(
+                keccak256(abi.encodePacked(msg.sender, block.timestamp)),
+                "fortress",
+                "fortress",
+                payable(address(this)),
+                minUsdcOut,
+                _swaps
+            );
 
         uint256 usdcReceived = usdc.balanceOf(address(this)) - usdcBefore;
         if (usdcReceived < minUsdcOut) revert SlippageExceeded(usdcReceived, minUsdcOut);

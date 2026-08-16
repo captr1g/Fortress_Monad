@@ -45,7 +45,11 @@ contract MockMorphoBlue is IMorphoBlue {
         uint256, /* shares */
         address onBehalf,
         address receiver
-    ) external override returns (uint256 assetsBorrowed, uint256 sharesBorrowed) {
+    )
+        external
+        override
+        returns (uint256 assetsBorrowed, uint256 sharesBorrowed)
+    {
         bytes32 id = _id(marketParams);
         _positions[id][onBehalf].borrowShares += uint128(assets);
         _totalBorrowAssets[id] += uint128(assets);

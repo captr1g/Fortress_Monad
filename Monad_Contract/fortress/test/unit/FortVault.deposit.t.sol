@@ -177,4 +177,73 @@ contract FortVaultDepositTest is FortVaultTestBase {
 
         assertGt(erc4626.balanceOf(user), 0);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Phase 4 (Monad): ERC-4626 capacity guard.
+    //
+    // Every sizeable MetaMorpho V2 USDC vault on Monad currently reports
+    // maxDeposit() == 0 (at cap, not gated). Without the guard the vault's own
+    // revert bubbles up anonymously AND takes the whole multi-protocol deposit
+    // with it, so the user cannot tell which entry was at fault.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    function test_deposit_cappedERC4626_revertsWithAttributableError() public {
+        uint256 amount = 1000e6;
+        _fundAndApprove(user, amount);
+
+        erc4626.setMaxDeposit(0); // simulate a vault at cap
+
+        FortVault.DepositEntry[] memory entries = new FortVault.DepositEntry[](1);
+        entries[0] = FortVault.DepositEntry(key4626, amount, 0, "");
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(FortVault.ProtocolAtCapacity.selector, key4626, amount, 0));
+        vault.deposit(entries);
+    }
+
+    function test_deposit_partialCapacity_revertsRatherThanUnderDepositing() public {
+        uint256 amount = 1000e6;
+        _fundAndApprove(user, amount);
+
+        erc4626.setMaxDeposit(400e6); // room for less than requested
+
+        FortVault.DepositEntry[] memory entries = new FortVault.DepositEntry[](1);
+        entries[0] = FortVault.DepositEntry(key4626, amount, 0, "");
+
+        // Must NOT silently deposit only what fits — that would under-deposit the
+        // user's funds and break the exact-sum property (I12).
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(FortVault.ProtocolAtCapacity.selector, key4626, amount, 400e6));
+        vault.deposit(entries);
+    }
+
+    function test_deposit_cappedVault_namesTheOffendingEntry_inMultiProtocolBatch() public {
+        uint256 amount = 1000e6;
+        _fundAndApprove(user, amount);
+
+        erc4626.setMaxDeposit(0);
+
+        // Split across a healthy adapter and the capped vault. The error must
+        // identify the capped one specifically.
+        FortVault.DepositEntry[] memory entries = new FortVault.DepositEntry[](2);
+        entries[0] = FortVault.DepositEntry(keyAdapter, 500e6, 0, "");
+        entries[1] = FortVault.DepositEntry(key4626, 500e6, 0, "");
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(FortVault.ProtocolAtCapacity.selector, key4626, 500e6, 0));
+        vault.deposit(entries);
+    }
+
+    function test_deposit_uncappedVault_unaffectedByGuard() public {
+        uint256 amount = 1000e6;
+        _fundAndApprove(user, amount);
+
+        FortVault.DepositEntry[] memory entries = new FortVault.DepositEntry[](1);
+        entries[0] = FortVault.DepositEntry(key4626, amount, 0, "");
+
+        vm.prank(user);
+        vault.deposit(entries);
+
+        assertGt(erc4626.balanceOf(user), 0, "shares should reach the user");
+    }
 }

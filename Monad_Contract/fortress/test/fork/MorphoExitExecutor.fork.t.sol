@@ -66,11 +66,7 @@ contract MorphoExitExecutorForkTest is Test, MonadFork {
         (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
             IMorphoForkExit(MORPHO_BLUE).idToMarketParams(MARKET_ID);
         market = IMorphoBlue.MarketParams({
-            loanToken: loanToken,
-            collateralToken: collateralToken,
-            oracle: oracle,
-            irm: irm,
-            lltv: lltv
+            loanToken: loanToken, collateralToken: collateralToken, oracle: oracle, irm: irm, lltv: lltv
         });
 
         MorphoExitExecutor exitImpl = new MorphoExitExecutor(MORPHO_BLUE);

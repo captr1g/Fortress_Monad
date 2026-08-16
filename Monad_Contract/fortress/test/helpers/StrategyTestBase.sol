@@ -107,11 +107,7 @@ abstract contract StrategyTestBase is Test {
     }
 
     /// @notice Build swap calldata + step data for a USDC->yoUSD swap on the MockDex.
-    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut) internal view returns (bytes memory) {
         bytes memory swapCalldata = abi.encodeCall(
             MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), amountOut, address(swapAdapter))
         );

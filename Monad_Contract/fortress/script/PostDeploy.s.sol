@@ -46,7 +46,7 @@ contract PostDeploy is Script {
         // Verify Morpho registered
         bytes32 morphoKey = keccak256(abi.encodePacked("Morpho"));
         (address morphoAddr, bool morphoIs4626) = vault.protocols(morphoKey);
-        _verify("Vault: Morpho addr", morphoAddr, MonadAddresses.VAULT_HYPER_USDCA);
+        _verify("Vault: Morpho addr", morphoAddr, MonadAddresses.VAULT_HYPERITHM_USDC_APEX);
         require(morphoIs4626, "Vault: Morpho should be ERC4626");
         console.log("Vault: Morpho isERC4626 = true [OK]");
 

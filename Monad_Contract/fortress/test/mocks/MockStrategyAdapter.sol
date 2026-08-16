@@ -25,10 +25,14 @@ contract MockStrategyAdapter is IStrategyAdapter {
     IStrategyAdapter.ActionType public lastAction;
     uint256 public callCount;
 
-    function execute(ActionType action, address token, uint256 amount, address, /* beneficiary */ bytes calldata data)
-        external
-        returns (address tokenOut, uint256 amountOut)
-    {
+    function execute(
+        ActionType action,
+        address token,
+        uint256 amount,
+        address,
+        /* beneficiary */
+        bytes calldata data
+    ) external returns (address tokenOut, uint256 amountOut) {
         lastAmountIn = amount;
         lastToken = token;
         lastAction = action;

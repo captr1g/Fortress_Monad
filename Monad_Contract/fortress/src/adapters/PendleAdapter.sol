@@ -98,10 +98,7 @@ contract PendleAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradea
             tokenMintSy: address(usdc),
             pendleSwap: address(0),
             swapData: IPendleRouter.SwapData({
-                swapType: IPendleRouter.SwapType.NONE,
-                extRouter: address(0),
-                extCalldata: "",
-                needScale: false
+                swapType: IPendleRouter.SwapType.NONE, extRouter: address(0), extCalldata: "", needScale: false
             })
         });
 
@@ -141,10 +138,7 @@ contract PendleAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradea
             tokenRedeemSy: address(usdc),
             pendleSwap: address(0),
             swapData: IPendleRouter.SwapData({
-                swapType: IPendleRouter.SwapType.NONE,
-                extRouter: address(0),
-                extCalldata: "",
-                needScale: false
+                swapType: IPendleRouter.SwapType.NONE, extRouter: address(0), extCalldata: "", needScale: false
             })
         });
 
@@ -176,11 +170,7 @@ contract PendleAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradea
     function _emptyLimitOrder() internal pure returns (IPendleRouter.LimitOrderData memory) {
         IPendleRouter.FillOrderParams[] memory empty = new IPendleRouter.FillOrderParams[](0);
         return IPendleRouter.LimitOrderData({
-            limitRouter: address(0),
-            epsSkipMarket: 0,
-            normalFills: empty,
-            flashFills: empty,
-            optData: ""
+            limitRouter: address(0), epsSkipMarket: 0, normalFills: empty, flashFills: empty, optData: ""
         });
     }
 

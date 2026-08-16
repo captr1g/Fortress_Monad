@@ -88,7 +88,10 @@ contract MockPendleRouter {
         address, /* YT */
         uint256 netPyIn,
         IPendleRouter.TokenOutput calldata /* output */
-    ) external returns (uint256 netTokenOut, uint256 netSyFee) {
+    )
+        external
+        returns (uint256 netTokenOut, uint256 netSyFee)
+    {
         // Pull PT from caller
         ptToken.safeTransferFrom(msg.sender, address(this), netPyIn);
 
