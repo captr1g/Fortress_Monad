@@ -1,0 +1,19 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+*-key.json
+*-deployer-key.json
+.kiro/
+.vscode
+Interdoc
+
+/Contracts/
+semantic-review
+
+# Test reports (auto-generated per run)
+tests/reports/
+
+/fortress-fe

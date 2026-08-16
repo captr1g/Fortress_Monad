@@ -1,0 +1,2 @@
+ALTER TABLE saved_strategies ADD COLUMN IF NOT EXISTS renamed_at TIMESTAMPTZ;
+ALTER TABLE saved_strategies ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ;
