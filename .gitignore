@@ -1,4 +1,5 @@
 .agents/
 skills-lock.json
 .env
-.env
+
+node_modules/
