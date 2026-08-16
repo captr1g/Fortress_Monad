@@ -6,17 +6,12 @@ import "../src/FortVault.sol";
 import "../src/CrossChainRouter.sol";
 import "../src/FortSwapRouter.sol";
 import "../src/adapters/LiFiAdapter.sol";
+import "../src/config/MonadAddresses.sol";
 
 /// @title PostDeploy — verify & configure FORTRESS after initial deployment
-/// @notice Run after DeployBase. Reads deployed addresses from env, verifies
+/// @notice Run after DeployMonad. Reads deployed addresses from env, verifies
 ///         state, optionally adds protocols/DEXes, and transfers ownership.
 contract PostDeploy is Script {
-    // ── Base mainnet constants ──
-    address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
-    address constant LIFI_DIAMOND = 0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE;
-    address constant MORPHO_MOONWELL_USDC = 0xc1256Ae5FF1cf2719D4937adb3bbCCab2E00A2Ca;
-    address constant AAVE_STATA_USDC = 0xC768c589647798a6EE01A91FdE98EF2ed046DBD6; // StataTokenV2 (ERC-4626)
-
     function run() external {
         // ═══════════════════════════════════════════════
         //  Load deployed addresses from env
@@ -40,7 +35,7 @@ contract PostDeploy is Script {
         console.log("========= Verification =========");
 
         // -- FortVault --
-        _verify("Vault: USDC", address(vault.usdc()), USDC);
+        _verify("Vault: MonadAddresses.USDC", address(vault.usdc()), MonadAddresses.USDC);
         _verify("Vault: owner", vault.owner(), deployer);
         require(!vault.paused(), "Vault: should not be paused");
         console.log("Vault: paused = false [OK]");
@@ -51,16 +46,17 @@ contract PostDeploy is Script {
         // Verify Morpho registered
         bytes32 morphoKey = keccak256(abi.encodePacked("Morpho"));
         (address morphoAddr, bool morphoIs4626) = vault.protocols(morphoKey);
-        _verify("Vault: Morpho addr", morphoAddr, MORPHO_MOONWELL_USDC);
+        _verify("Vault: Morpho addr", morphoAddr, MonadAddresses.VAULT_HYPER_USDCA);
         require(morphoIs4626, "Vault: Morpho should be ERC4626");
         console.log("Vault: Morpho isERC4626 = true [OK]");
 
-        // Verify Aave registered
+        // Phase 2: the "Aave" registry key is not deployed on Monad. FORTRESS does
+        // not integrate Aave here; doing so needs explicit operator instruction
+        // (port prompt §3.4). Assert it is absent rather than silently skipping.
         bytes32 aaveKey = keccak256(abi.encodePacked("Aave"));
-        (address aaveAddr, bool aaveIs4626) = vault.protocols(aaveKey);
-        _verify("Vault: Aave addr", aaveAddr, AAVE_STATA_USDC);
-        require(aaveIs4626, "Vault: Aave should be ERC4626");
-        console.log("Vault: Aave isERC4626 = true [OK]");
+        (address aaveAddr,) = vault.protocols(aaveKey);
+        require(aaveAddr == address(0), "Vault: Aave must NOT be registered on Monad");
+        console.log("Vault: Aave absent as expected [OK]");
 
         // Verify LiFi adapter registered
         bytes32 lifiKey = keccak256(abi.encodePacked("LiFi"));
@@ -70,15 +66,15 @@ contract PostDeploy is Script {
         console.log("Vault: LiFi isERC4626 = false [OK]");
 
         // -- LiFiAdapter --
-        _verify("LiFiAdapter: USDC", address(lifiAdapter.usdc()), USDC);
-        _verify("LiFiAdapter: lifiDiamond", lifiAdapter.lifiDiamond(), LIFI_DIAMOND);
+        _verify("LiFiAdapter: MonadAddresses.USDC", address(lifiAdapter.usdc()), MonadAddresses.USDC);
+        _verify("LiFiAdapter: lifiDiamond", lifiAdapter.lifiDiamond(), MonadAddresses.LIFI_DIAMOND);
         _verify("LiFiAdapter: owner", lifiAdapter.owner(), deployer);
-        require(lifiAdapter.isApprovedDex(LIFI_DIAMOND), "LiFiAdapter: LiFi Diamond not approved");
+        require(lifiAdapter.isApprovedDex(MonadAddresses.LIFI_DIAMOND), "LiFiAdapter: LiFi Diamond not approved");
         console.log("LiFiAdapter: LiFi Diamond DEX approved [OK]");
 
         // -- CrossChainRouter --
-        _verify("CCRouter: USDC", address(ccRouter.usdc()), USDC);
-        _verify("CCRouter: lifiDiamond", ccRouter.lifiDiamond(), LIFI_DIAMOND);
+        _verify("CCRouter: MonadAddresses.USDC", address(ccRouter.usdc()), MonadAddresses.USDC);
+        _verify("CCRouter: lifiDiamond", ccRouter.lifiDiamond(), MonadAddresses.LIFI_DIAMOND);
         _verify("CCRouter: owner", ccRouter.owner(), deployer);
         require(!ccRouter.paused(), "CCRouter: should not be paused");
         console.log("CCRouter: paused = false [OK]");
@@ -87,7 +83,7 @@ contract PostDeploy is Script {
         // -- FortSwapRouter --
         _verify("SwapRouter: owner", swapRouter.owner(), deployer);
         _verify("SwapRouter: vault", swapRouter.vault(), vaultProxy);
-        require(swapRouter.isApprovedDex(LIFI_DIAMOND), "SwapRouter: LiFi Diamond not approved");
+        require(swapRouter.isApprovedDex(MonadAddresses.LIFI_DIAMOND), "SwapRouter: LiFi Diamond not approved");
         console.log("SwapRouter: LiFi Diamond DEX approved [OK]");
 
         console.log("========= Verification PASSED =========");
@@ -102,17 +98,14 @@ contract PostDeploy is Script {
         vm.startBroadcast(deployerPk);
 
         // ── 2a. Register additional ERC-4626 protocols ──
-        // vault.registerProtocol("Compound", 0x...compVaultAddr, true);
+        // vault.registerProtocol("<Name>", <MonadAddresses constant>, true);
 
         // ── 2b. Register additional custom adapters ──
-        // vault.registerProtocol("Yearn", 0x...yearnAdapterAddr, false);
+        // vault.registerProtocol("<Name>", <deployed adapter>, false);
 
         // ── 2c. Approve additional DEX routers on swap router ──
-        // swapRouter.setApprovedDex(0x...paraswapRouter, true);
-        // swapRouter.setApprovedDex(0x...oneInchRouter, true);
 
         // ── 2d. Approve additional DEX routers on LiFiAdapter ──
-        // lifiAdapter.setApprovedDex(0x...paraswapRouter, true);
 
         // ── 2e. Update keeper on CrossChainRouter ──
         // ccRouter.setKeeper(0x...newKeeperAddr);
@@ -126,6 +119,17 @@ contract PostDeploy is Script {
         // lifiAdapter.transferOwnership(multisig);
         // ccRouter.transferOwnership(multisig);
         // console.log("Ownership transfer initiated to:", multisig);
+
+        // Monad DEX / aggregator allowlist. Every address verified to hold code on
+        // chain 143 and cross-checked against monad-crypto/protocols (Phase 2).
+        // The Base list (Odos, BaseSwap, LI.FI sub-routers) is NOT carried over —
+        // see the collision warning in src/config/MonadAddresses.sol.
+        swapRouter.setApprovedDex(MonadAddresses.LIFI_DIAMOND, true);
+        swapRouter.setApprovedDex(MonadAddresses.KYBERSWAP_META_AGGREGATION_ROUTER_V2, true);
+        swapRouter.setApprovedDex(MonadAddresses.OPENOCEAN_EXCHANGE_PROXY, true);
+        swapRouter.setApprovedDex(MonadAddresses.EISEN_DIAMOND, true);
+        swapRouter.setApprovedDex(MonadAddresses.MONORAIL_AGGREGATION_ROUTER, true);
+        swapRouter.setApprovedDex(MonadAddresses.KURU_ROUTER, true);
 
         vm.stopBroadcast();
 

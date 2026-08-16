@@ -6,11 +6,9 @@ import "../src/FortStrategyExecutor.sol";
 import "../src/adapters/MorphoStrategyAdapter.sol";
 import "../src/adapters/SwapStrategyAdapter.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
+import "../src/config/MonadAddresses.sol";
 
 contract DeployStrategy is Script {
-    address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
-    address constant LIFI_DIAMOND = 0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE;
-
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
@@ -24,7 +22,7 @@ contract DeployStrategy is Script {
         FortStrategyExecutor executor = FortStrategyExecutor(address(executorProxy));
 
         // 2. Deploy MorphoStrategyAdapter (UUPS proxy)
-        MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(MORPHO_BLUE);
+        MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(MonadAddresses.MORPHO_BLUE);
         ERC1967Proxy morphoProxy = new ERC1967Proxy(
             address(morphoImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (address(executor), deployer))
         );
@@ -42,9 +40,17 @@ contract DeployStrategy is Script {
         executor.registerAdapter(1, address(morphoAdapter));
 
         // 5. Approve DEX routers
-        swapAdapter.setApprovedDex(LIFI_DIAMOND, true);
-        swapAdapter.setApprovedDex(0xC18D9E84b8687A2645447A61e52c455Dac1675e1, true); // OdosRouter
-        swapAdapter.setApprovedDex(0x20F6ee51340aDEed01A59B0e65cB3703f3dc860c, true); // BaseSwap
+
+        // Monad DEX / aggregator allowlist. Every address verified to hold code on
+        // chain 143 and cross-checked against monad-crypto/protocols (Phase 2).
+        // The Base list (Odos, BaseSwap, LI.FI sub-routers) is NOT carried over —
+        // see the collision warning in src/config/MonadAddresses.sol.
+        swapAdapter.setApprovedDex(MonadAddresses.LIFI_DIAMOND, true);
+        swapAdapter.setApprovedDex(MonadAddresses.KYBERSWAP_META_AGGREGATION_ROUTER_V2, true);
+        swapAdapter.setApprovedDex(MonadAddresses.OPENOCEAN_EXCHANGE_PROXY, true);
+        swapAdapter.setApprovedDex(MonadAddresses.EISEN_DIAMOND, true);
+        swapAdapter.setApprovedDex(MonadAddresses.MONORAIL_AGGREGATION_ROUTER, true);
+        swapAdapter.setApprovedDex(MonadAddresses.KURU_ROUTER, true);
 
         vm.stopBroadcast();
 

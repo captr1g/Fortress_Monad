@@ -8,6 +8,7 @@ import "../../src/adapters/MorphoStrategyAdapter.sol";
 import "../../src/interfaces/IMorphoBlue.sol";
 import "../../src/interfaces/IStrategyAdapter.sol";
 import "../../src/interfaces/IOracle.sol";
+import "../helpers/MonadFork.sol";
 
 /// @notice Real Morpho Blue (Base mainnet) tests for the oracle-based borrow.
 ///         These cover the three things the mock cannot: the real oracle's price
@@ -28,7 +29,14 @@ interface IMorphoBlueExtended {
     function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
-contract MorphoStrategyAdapterForkTest is Test {
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 STATUS: forks Monad mainnet at the pinned block (test/helpers/MonadFork.sol),
+// but the market/token addresses below are still BASE values and do not exist on
+// Monad. This test WILL FAIL until Phase 4 rebuilds its fixtures from the live
+// Monad markets enumerated in RESEARCH.md §5 and §6.
+// Excluded from CI (`--no-match-path "test/fork/*"`).
+// ─────────────────────────────────────────────────────────────────────────────
+contract MorphoStrategyAdapterForkTest is Test, MonadFork {
     uint256 internal constant WAD = 1e18;
     uint256 internal constant ORACLE_PRICE_SCALE = 1e36;
 
@@ -42,7 +50,7 @@ contract MorphoStrategyAdapterForkTest is Test {
     address internal user = address(0xA11CE);
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+        vm.createSelectFork(vm.envString("MONAD_RPC_URL"), FORK_BLOCK);
 
         (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
             IMorphoBlueExtended(MORPHO_BLUE).idToMarketParams(MARKET_ID);

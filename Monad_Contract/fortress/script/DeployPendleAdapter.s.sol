@@ -5,20 +5,17 @@ import "forge-std/Script.sol";
 import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../src/FortStrategyExecutor.sol";
 import "../src/adapters/PendleStrategyAdapter.sol";
+import "../src/config/MonadAddresses.sol";
 
 /// @title DeployPendleAdapter — redeploy PendleStrategyAdapter (v2 with sub-actions + wrap).
 /// @notice Removes the old adapter at ID 2, deploys the new one, and registers it.
 ///
 ///         Usage:
-///           cd Contracts
 ///           source .env
-///           EXECUTOR_ADDRESS=0x09Acd25f4Cd57155C47edc4b82855b50Ba67ad0D \
-///             forge script script/DeployPendleAdapter.s.sol --rpc-url $BASE_RPC_URL --broadcast --slow
+///           EXECUTOR_ADDRESS=<deployed FortStrategyExecutor> \
+///             forge script script/DeployPendleAdapter.s.sol --rpc-url $MONAD_RPC_URL --broadcast --slow
 contract DeployPendleAdapter is Script {
     uint8 constant PENDLE_ID = 2;
-    address constant PENDLE_ROUTER = 0x888888888889758F76e7103c6CbF23ABbF58F946;
-    // Pendle LP Wrapper Factory on Base — used to look up wrappers per market.
-    address constant LP_WRAPPER_FACTORY = 0xCa274A44a52241c1a8EFb9f84Bf492D8363929FC;
 
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
@@ -35,7 +32,7 @@ contract DeployPendleAdapter is Script {
         }
 
         // 2. Deploy new PendleStrategyAdapter (UUPS proxy)
-        PendleStrategyAdapter pendleImpl = new PendleStrategyAdapter(PENDLE_ROUTER);
+        PendleStrategyAdapter pendleImpl = new PendleStrategyAdapter(MonadAddresses.PENDLE_ROUTER_V4);
         ERC1967Proxy pendleProxy = new ERC1967Proxy(
             address(pendleImpl), abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, deployer))
         );
@@ -50,7 +47,7 @@ contract DeployPendleAdapter is Script {
         console.log("Executor (unchanged):", executorAddr);
         console.log("PendleStrategyAdapter:", address(pendleAdapter));
         console.log("Adapter ID:", PENDLE_ID);
-        console.log("Pendle Router:", PENDLE_ROUTER);
+        console.log("Pendle Router:", MonadAddresses.PENDLE_ROUTER_V4);
         console.log("");
         console.log("=== Update .env with ===");
         console.log("FORTRESS_PENDLE_ADAPTER=%s", vm.toString(address(pendleAdapter)));

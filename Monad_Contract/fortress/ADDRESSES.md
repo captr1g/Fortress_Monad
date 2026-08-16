@@ -173,7 +173,9 @@ DEX/aggregators on 143: `eisen, openocean, kyberswap, sushiswap, fly, monorail, 
 | Permit2 | `0x000000000022d473030f116ddee9f6b43ac78ba3` | code 9152B; `id:DOMAIN_SEPARATOR()=0x400b2a627bd11055ecf9…` |
 | CreateX | `0xba5Ed099633D3B313e4D5F7bdc1305d3c28ba5Ed` | code 11838B |
 | Foundry deterministic deployer | `0x4e59b44847b379578588920ca78fbf26c0b4956c` | code 69B |
-| Safe (per prompt §2.1) | `0x69f4D1788e39c87893C980c06EdF4b7f686e2938` | code 22958B — **contract confirmed, exact role (factory vs singleton) UNVERIFIED** |
+| **Safe singleton** | `0x69f4D1788e39c87893C980c06EdF4b7f686e2938` | code 22958B; monskills `addresses` skill lists it as **`Safe`** (the singleton/mastercopy) — **not** the proxy factory as prompt §2.1 states |
+| SafeL2 | `0xfb1bffC9d739B8D520DaF37dF666da4C687191EA` | monskills `addresses` skill |
+| SafeSingletonFactory | `0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7` | monskills `addresses` skill — **this** is the factory |
 | Switchboard oracle | `0xB7F03eee7B9F56347e32cC71DaD65B303D5a0E67` | code 130B (proxy-sized) |
 
 ---

@@ -11,6 +11,7 @@ import "../../src/interfaces/IFortStrategyExecutor.sol";
 import "../../src/interfaces/IMorphoBlue.sol";
 import "../../src/interfaces/IStrategyAdapter.sol";
 import "../mocks/MockDex.sol";
+import "../helpers/MonadFork.sol";
 
 /// @notice Extended Morpho interface exposing position + market param lookups used on-fork.
 interface IMorphoBlueExtended {
@@ -27,7 +28,14 @@ interface IMorphoBlueExtended {
     function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
-contract FortStrategyExecutorForkTest is Test {
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 STATUS: forks Monad mainnet at the pinned block (test/helpers/MonadFork.sol),
+// but the market/token addresses below are still BASE values and do not exist on
+// Monad. This test WILL FAIL until Phase 4 rebuilds its fixtures from the live
+// Monad markets enumerated in RESEARCH.md §5 and §6.
+// Excluded from CI (`--no-match-path "test/fork/*"`).
+// ─────────────────────────────────────────────────────────────────────────────
+contract FortStrategyExecutorForkTest is Test, MonadFork {
     // Base mainnet addresses
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
@@ -48,7 +56,7 @@ contract FortStrategyExecutorForkTest is Test {
     IMorphoBlue.MarketParams internal market;
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+        vm.createSelectFork(vm.envString("MONAD_RPC_URL"), FORK_BLOCK);
 
         // Read real market params from Morpho Blue.
         (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =

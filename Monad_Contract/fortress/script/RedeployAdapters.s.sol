@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "../src/FortStrategyExecutor.sol";
 import "../src/adapters/MorphoStrategyAdapter.sol";
 import "../src/adapters/SwapStrategyAdapter.sol";
+import "../src/config/MonadAddresses.sol";
 
 /// @title RedeployAdapters — deploy new adapters and register them on the existing executor.
 /// @notice The executor proxy address stays the same (users keep their approvals).
@@ -21,12 +22,8 @@ contract RedeployAdapters is Script {
     uint8 constant MORPHO_ID = 1;
 
     // Protocol addresses
-    address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
 
     // DEX routers to allowlist on the new swap adapter
-    address constant LIFI_DIAMOND = 0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE;
-    address constant ODOS_ROUTER = 0xC18D9E84b8687A2645447A61e52c455Dac1675e1;
-    address constant BASESWAP = 0x20F6ee51340aDEed01A59B0e65cB3703f3dc860c;
 
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
@@ -39,7 +36,7 @@ contract RedeployAdapters is Script {
 
         //Deploy new adapters
 
-        MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(MORPHO_BLUE);
+        MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(MonadAddresses.MORPHO_BLUE);
         ERC1967Proxy morphoProxy = new ERC1967Proxy(
             address(morphoImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, deployer))
         );
@@ -62,9 +59,18 @@ contract RedeployAdapters is Script {
 
         // Allowlist for lifi
 
-        // newSwapAdapter.setApprovedDex(LIFI_DIAMOND, true);
-        // newSwapAdapter.setApprovedDex(ODOS_ROUTER, true);
-        // newSwapAdapter.setApprovedDex(BASESWAP, true);
+        // Monad DEX / aggregator allowlist. Every address verified to hold code on
+        // chain 143 and cross-checked against monad-crypto/protocols (Phase 2).
+        // The Base list (Odos, BaseSwap, LI.FI sub-routers) is NOT carried over —
+        // see the collision warning in src/config/MonadAddresses.sol.
+        // Commented to match the SwapStrategyAdapter deployment above, which is
+        // itself commented out in this script. Re-enable both together.
+        // newSwapAdapter.setApprovedDex(MonadAddresses.LIFI_DIAMOND, true);
+        // newSwapAdapter.setApprovedDex(MonadAddresses.KYBERSWAP_META_AGGREGATION_ROUTER_V2, true);
+        // newSwapAdapter.setApprovedDex(MonadAddresses.OPENOCEAN_EXCHANGE_PROXY, true);
+        // newSwapAdapter.setApprovedDex(MonadAddresses.EISEN_DIAMOND, true);
+        // newSwapAdapter.setApprovedDex(MonadAddresses.MONORAIL_AGGREGATION_ROUTER, true);
+        // newSwapAdapter.setApprovedDex(MonadAddresses.KURU_ROUTER, true);
 
         vm.stopBroadcast();
 

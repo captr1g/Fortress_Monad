@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../src/adapters/PendleStrategyAdapter.sol";
 import "../../src/interfaces/IStrategyAdapter.sol";
+import "../helpers/MonadFork.sol";
 
 /// @notice Minimal struct matching Pendle's TokenInput for the simple swap function.
 struct TokenInput {
@@ -43,8 +44,15 @@ interface IPendleRouterSimple {
 
 /// @notice Fork test: PendleStrategyAdapter against the real Pendle Router on Base.
 ///         Verifies the adapter can relay calldata and buy PT-wcgUSD using USDC.
-///         Run with: BASE_RPC_URL=... forge test --match-path "test/fork/PendleStrategyAdapter*" -vvv
-contract PendleStrategyAdapterForkTest is Test {
+///         Run with: MONAD_RPC_URL=... forge test --match-path "test/fork/PendleStrategyAdapter*" -vvv
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 STATUS: forks Monad mainnet at the pinned block (test/helpers/MonadFork.sol),
+// but the market/token addresses below are still BASE values and do not exist on
+// Monad. This test WILL FAIL until Phase 4 rebuilds its fixtures from the live
+// Monad markets enumerated in RESEARCH.md §5 and §6.
+// Excluded from CI (`--no-match-path "test/fork/*"`).
+// ─────────────────────────────────────────────────────────────────────────────
+contract PendleStrategyAdapterForkTest is Test, MonadFork {
     address constant PENDLE_ROUTER = 0x888888888889758F76e7103c6CbF23ABbF58F946;
     address constant USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
 
@@ -56,7 +64,7 @@ contract PendleStrategyAdapterForkTest is Test {
     address internal executorAddr;
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+        vm.createSelectFork(vm.envString("MONAD_RPC_URL"), FORK_BLOCK);
 
         // The test contract acts as the executor.
         executorAddr = address(this);

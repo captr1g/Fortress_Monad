@@ -268,8 +268,31 @@ executor's own bookkeeping gas is the quadratic snapshot loop.**
 
 ### 8.2 What actually binds
 
-- **Block gas limit (150M) does NOT bind.** A 30-step strategy with realistic adapter
-  internals lands around 15–20M gas — well inside a block.
+> ⚠️ **UNRESOLVED CONFLICT — added Phase 2, affects the MAX_STEPS derivation.**
+> The `monskills` `gas` skill documents **block gas limit 200M** and a
+> **per-transaction gas limit of 30M**. My measurements disagree:
+>
+> | Source | Block limit | Per-tx limit |
+> |---|---|---|
+> | monskills `gas` skill | 200,000,000 (target 160M = 80%) | **30,000,000** |
+> | Measured `eth_getBlockByNumber(latest).gasLimit` | **150,000,000** | — |
+> | Measured RPC ceiling (binary-searched) | 150,000,000 accepted, 150,000,001 rejected `gas limit too high` | no 30M cap observable |
+>
+> `eth_call` and `eth_estimateGas` both accept up to exactly 150,000,000 and reject
+> above it. **No 30M cap is observable through the RPC simulation path.** These are
+> reconcilable — a per-tx cap would be enforced at transaction validation/inclusion,
+> not during simulation — but I could not confirm it without broadcasting a funded
+> transaction, which needs the testnet key requested in §13.2.
+>
+> **This is load-bearing.** If a 30M per-tx cap is real, it — not the block limit —
+> is the hard ceiling, and a 30-step strategy at an estimated 15–20M gas sits
+> uncomfortably close to it. `MAX_STEPS` must then be derived against 30M.
+> **Phase 3 must resolve this by broadcasting a high-gas-limit transaction on
+> testnet before deriving any final constant.**
+
+- **Neither observed limit binds on raw capacity today.** A 30-step strategy with
+  realistic adapter internals lands around 15–20M gas — inside both 150M and, more
+  narrowly, a hypothetical 30M per-tx cap.
 - **The binding constraint is economic**, because Monad charges on `gas_limit`, not
   `gas_used`. At the 100 gwei floor, a 20M-gas limit costs the user **2.0 MON up front,
   whether or not the strategy uses it** — and wallet padding of `eth_estimateGas` makes

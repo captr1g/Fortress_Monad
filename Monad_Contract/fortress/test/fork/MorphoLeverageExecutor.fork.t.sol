@@ -8,6 +8,7 @@ import "../../src/MorphoLeverageExecutor.sol";
 import "../../src/interfaces/IMorphoBlue.sol";
 import "../../src/interfaces/IOracle.sol";
 import "../mocks/MockDex.sol";
+import "../helpers/MonadFork.sol";
 
 /// @notice Real Morpho Blue (Base mainnet) test for the flash-loan leverage entry. Validates
 ///         the two things the mock cannot: the real Morpho flashLoan callback wiring and the
@@ -29,7 +30,14 @@ interface IMorphoForkLev {
     function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
-contract MorphoLeverageExecutorForkTest is Test {
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 STATUS: forks Monad mainnet at the pinned block (test/helpers/MonadFork.sol),
+// but the market/token addresses below are still BASE values and do not exist on
+// Monad. This test WILL FAIL until Phase 4 rebuilds its fixtures from the live
+// Monad markets enumerated in RESEARCH.md §5 and §6.
+// Excluded from CI (`--no-match-path "test/fork/*"`).
+// ─────────────────────────────────────────────────────────────────────────────
+contract MorphoLeverageExecutorForkTest is Test, MonadFork {
     uint256 internal constant ORACLE_PRICE_SCALE = 1e36;
 
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
@@ -42,7 +50,7 @@ contract MorphoLeverageExecutorForkTest is Test {
     address internal user = address(0xA11CE);
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+        vm.createSelectFork(vm.envString("MONAD_RPC_URL"), FORK_BLOCK);
 
         (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
             IMorphoForkLev(MORPHO_BLUE).idToMarketParams(MARKET_ID);

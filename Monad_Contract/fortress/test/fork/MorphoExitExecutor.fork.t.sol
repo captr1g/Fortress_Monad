@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "../../src/MorphoExitExecutor.sol";
 import "../../src/interfaces/IMorphoBlue.sol";
 import "../mocks/MockDex.sol";
+import "../helpers/MonadFork.sol";
 
 /// @notice Real Morpho Blue (Base mainnet) test for the flash-loan exit. Validates the
 ///         two things the mock cannot: the real Morpho flashLoan callback wiring and the
@@ -42,7 +43,14 @@ interface IMorphoForkExit {
     function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
-contract MorphoExitExecutorForkTest is Test {
+// ─────────────────────────────────────────────────────────────────────────────
+// PHASE 2 STATUS: forks Monad mainnet at the pinned block (test/helpers/MonadFork.sol),
+// but the market/token addresses below are still BASE values and do not exist on
+// Monad. This test WILL FAIL until Phase 4 rebuilds its fixtures from the live
+// Monad markets enumerated in RESEARCH.md §5 and §6.
+// Excluded from CI (`--no-match-path "test/fork/*"`).
+// ─────────────────────────────────────────────────────────────────────────────
+contract MorphoExitExecutorForkTest is Test, MonadFork {
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
     bytes32 constant MARKET_ID = 0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
 
@@ -53,7 +61,7 @@ contract MorphoExitExecutorForkTest is Test {
     address internal user = address(0xA11CE);
 
     function setUp() public {
-        vm.createSelectFork(vm.envString("BASE_RPC_URL"));
+        vm.createSelectFork(vm.envString("MONAD_RPC_URL"), FORK_BLOCK);
 
         (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
             IMorphoForkExit(MORPHO_BLUE).idToMarketParams(MARKET_ID);
