@@ -1,8 +1,9 @@
 node_modules
-dist
-.env
+.next
+.turbo
+.env*
+!.env.example
 .git
 .DS_Store
 *.log
 npm-debug.log*
-.coverage

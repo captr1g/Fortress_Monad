@@ -1,22 +1,48 @@
-FROM node:20-slim AS builder
+# ── Stage 1: Build & Dependencies ──
+FROM node:20-alpine AS builder
+
 WORKDIR /app
-COPY package.json package-lock.json ./
+
+# Install build tools if native dependencies need compiling
+RUN apk add --no-cache python3 make g++
+
+# Copy package descriptors
+COPY package*.json ./
+
+# Install all dependencies (including devDependencies for TypeScript build)
 RUN npm ci
-COPY tsconfig.json vitest.config.ts vitest.integration.config.ts ./
-COPY src ./src
-COPY tests ./tests
-RUN rm -rf dist && npm run build
 
-FROM node:20-slim AS runtime
-WORKDIR /app
-ENV NODE_ENV=production
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+# Copy source code and config
 COPY tsconfig.json ./
-COPY src ./src
+COPY vitest.config.ts ./
+COPY src/ ./src/
 
-# Cloud Run injects its own PORT (default 8080) and expects the container to
-# listen on it — the app already reads process.env.PORT, so no code change
-# needed, just don't hardcode 3000 here.
-EXPOSE 8080
+# Compile TypeScript
+RUN npm run typecheck && npm run test && npx tsc
+
+# ── Stage 2: Production Runner ──
+FROM node:20-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Install runtime dependencies only
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy compiled files and source for TSX fallback
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
+COPY tsconfig.json ./
+
+# Expose Fastify port
+EXPOSE 3000
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/fortress/health || exit 1
+
+# Start the Fastify backend server
 CMD ["node", "--import", "tsx", "src/boot.ts"]

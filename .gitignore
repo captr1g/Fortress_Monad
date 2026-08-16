@@ -3,3 +3,4 @@ skills-lock.json
 .env
 AGENT_HANDOFF.md
 node_modules/
+nginx.conf.example
