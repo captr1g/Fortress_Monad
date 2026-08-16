@@ -8,7 +8,7 @@ State at submission: **Phases 0–4 complete** (Phase 4 task 14 skipped by opera
 instruction). Phases 5–9 not started — see [What is NOT done](#what-is-not-done).
 
 ```
-623 tests pass, 0 fail          (unit + fuzz + invariant + gas)
+632 tests pass, 0 fail          (unit + fuzz + invariant + gas)
  26 fork tests pass             against live Monad at the pinned block
      forge fmt --check          clean
      address-literal CI gate    green
@@ -47,10 +47,10 @@ literals in doc comments during Phase 4.
 | 3 | Measured gas envelopes, `MAX_STEPS` re-derived 30 → 10 | ✅ |
 | 4 | Adapters — LI.FI rewrite, Aave V3 + Neverland, shMONAD | ✅ |
 | 5 | Executor / transient-storage hardening | ❌ not started |
-| 6 | Cross-chain + keeper design | ❌ not started |
-| 7 | Timelock ownership wiring | ❌ not started |
-| 8 | Security pass, Slither triage | ❌ not started |
-| 9 | Deployment + `VerifyDeployment.s.sol` | ❌ **blocked** — see §6 |
+| 6 | Cross-chain + keeper design | ⏭️ **skipped by operator** |
+| 7 | Timelock ownership wiring | 🟡 scripted + tested |
+| 8 | Security pass | 🟡 access-control sweep executable; Slither not run |
+| 9 | Deployment verification | 🟡 script written; broadcast blocked — see §6 |
 
 Full rationale for every divergence from Base is in `DECISIONS.md` (D0-1 … D4-13).
 
@@ -183,7 +183,7 @@ Aave was added under explicit operator instruction and did **not** consume a res
 cd Monad_Contract/Fortress
 
 # Correctness (no RPC needed)
-forge test --no-match-path "test/fork/*"          # 623 pass
+forge test --no-match-path "test/fork/*"          # 632 pass
 
 # Live-chain evidence
 export MONAD_RPC_URL=https://rpc.monad.xyz
@@ -209,3 +209,67 @@ Phase 2 Base fixtures and fail; they are excluded from CI and were not in Phase 
 | `ADDRESSES.md` | Address book with per-address verification evidence |
 | `docs/gas-model.md` | Measured cost curve, `MAX_STEPS` derivation, per-adapter envelopes |
 | `src/adapters/PENDING.md` | The three empty slots and the bar any replacement must clear |
+
+
+---
+
+## 9. Phases 7–9, partially delivered
+
+Added after the main body above, under an explicit "skip cross-chain, do the rest fast"
+instruction. These are **written and tested but not exercised against a live
+deployment**, because that needs the funded key from §6.
+
+### Phase 7 — ownership handover
+
+`script/TransferOwnership.s.sol` starts the transfer of every FORTRESS contract to the
+timelock deployed by `DeployTimelock.s.sol` (48h delay, self-governed, admin
+`address(0)`).
+
+Every contract is `Ownable2Step`, and that is load-bearing rather than incidental: the
+owner holds `_authorizeUpgrade` on every UUPS proxy — the right to replace the
+implementation behind the vault and every adapter. A one-step transfer to a wrong
+address would be an unrecoverable loss of the protocol; the pending-owner step makes a
+typo a no-op. The script asserts `pendingOwner` after each call and states plainly that
+the handover is **not complete** until the timelock executes `acceptOwnership()`.
+
+`test_ownershipTransferIsTwoStep` proves the whole sequence on all three Phase 4
+adapters, including that the old owner is powerless afterwards.
+
+### Phase 8 — access-control sweep
+
+Slither is not installed in this environment, so the security pass is expressed as
+`test/unit/AccessControl.sweep.t.sol` — 9 tests asserting, for every Phase 4 adapter:
+
+- every `onlyOwner` configuration and rescue function rejects a stranger
+- every value-moving `onlyVault` entry point rejects a stranger (these pull tokens via
+  allowances the vault holds, so an unguarded one is drainable by anyone)
+- `upgradeToAndCall` — the single most dangerous function — is owner-gated
+- implementations cannot be initialized, and proxies cannot be re-initialized
+- `LiFiAdapter.swap` is *deliberately* public, recorded so its openness reads as a
+  decision rather than an oversight sitting next to the gated functions
+
+A scanner tells you a modifier is missing today; these tell you the day someone removes
+one. **This is not a substitute for a Slither run or an audit** — it is the slice that
+was verifiable in the time available.
+
+### Phase 9 — deployment verification
+
+`script/VerifyDeployment.s.sol` is read-only and never broadcasts, so it is safe to run
+against mainnet with no key. It checks the four things a deployment can silently get
+wrong:
+
+1. **Reserved adapter slots 3/4/5 are still empty** — a registration there is a policy
+   breach that nothing else in the system would notice.
+2. **Every third-party address matches the verified address book** — a proxy wired to
+   the wrong pool or diamond behaves normally right up until it does not.
+3. **Ownership actually reached the timelock** — it explicitly catches the dangerous
+   middle state where `transferOwnership` ran but `acceptOwnership` never did, leaving
+   the deployer holding the upgrade key.
+4. **The I5 selector allowlist is populated** — reported as a WARNING, not a failure,
+   because an empty allowlist is a correct deployment with dead swap paths.
+
+It also asserts the Base-era keys `"Compound"` and `"Yearn"` are absent, which is how a
+substitute adapter slipped into a reserved role would be caught.
+
+**Not done:** no broadcast has ever been made. Phase 9 is complete only when this script
+runs green against a real deployment.
