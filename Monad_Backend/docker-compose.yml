@@ -1,32 +1,48 @@
-version: "3.8"
+# Dependencies only — Postgres and Redis for running the backend on the host
+# with `npm run dev`. The full stack (backend + frontend + these) lives in the
+# repo-root docker-compose.yml.
+#
+# Do not run both at once: they bind the same host ports. Use one or the other.
+#
+# Credentials and ports match the root compose and deploy/local-defaults.env so
+# a single APY_DATABASE_URL works against either. They used to differ
+# (apy/apy_secret/apy_service here, postgres/postgres/fortress there), which
+# meant a connection string that worked with one stack failed against the other.
 
 services:
   postgres:
     image: postgres:16-alpine
+    container_name: fortress-postgres-dev
     environment:
-      POSTGRES_DB: apy_service
-      POSTGRES_USER: apy
-      POSTGRES_PASSWORD: apy_secret
+      POSTGRES_USER: fortress
+      POSTGRES_PASSWORD: fortress
+      POSTGRES_DB: fortress
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./src/services/apy/db/migrations:/docker-entrypoint-initdb.d
+      # Postgres runs these once, only when the data directory is first created.
+      # The path was ./src/services/apy/db/migrations, which has not existed
+      # since the core/ refactor — so it mounted an empty directory and silently
+      # seeded nothing. Run `npm run migrate` for an existing volume; this mount
+      # only helps a brand-new one.
+      - ./src/core/services/apy/db/migrations:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U apy -d apy_service"]
+      test: ["CMD-SHELL", "pg_isready -U fortress -d fortress"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
   redis:
     image: redis:7-alpine
+    container_name: fortress-redis-dev
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
-      retries: 5
+      retries: 10
 
 volumes:
   pgdata:

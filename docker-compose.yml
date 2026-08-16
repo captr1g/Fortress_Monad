@@ -1,7 +1,43 @@
 name: fortress-monad
 
+# Configuration precedence, lowest to highest:
+#   1. deploy/local-defaults.env   — makes the stack boot with zero setup
+#   2. ./.env                      — repo-wide overrides
+#   3. ./Monad_Backend/.env        — your real credentials; always wins
+#
+# `environment:` is reserved for values that MUST differ inside the container
+# network (a service hostname, the listen port). Docker Compose gives
+# `environment:` precedence over `env_file:`, so anything secret-shaped listed
+# there would silently override your .env — which is exactly how the backend
+# ended up authenticating against the local Postgres as user "postgres" instead
+# of the configured database.
+
 services:
-  # ── 1. Backend Service (Fastify + OpenAI Planner + EVM Kernel) ──
+  # ── 1. Database migrations (one-shot, runs before the backend) ────────────
+  # 009_monad_markets.sql deletes the Base-era chain-8453 rows seeded by
+  # 002/003. Without this the APY poller keeps finding markets on a chain the
+  # Aave adapter has no pool for and skips them on every tick.
+  migrate:
+    build:
+      context: ./Monad_Backend
+      dockerfile: Dockerfile
+    container_name: fortress-migrate
+    command: ["npm", "run", "migrate"]
+    env_file:
+      - path: ./deploy/local-defaults.env
+        required: false
+      - path: ./.env
+        required: false
+      - path: ./Monad_Backend/.env
+        required: false
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - fortress-net
+
+  # ── 2. Backend Service (Fastify + OpenAI Planner + EVM Kernel) ────────────
   backend:
     build:
       context: ./Monad_Backend
@@ -11,79 +47,82 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     env_file:
+      - path: ./deploy/local-defaults.env
+        required: false
       - path: ./.env
         required: false
       - path: ./Monad_Backend/.env
         required: false
     environment:
+      # Container-specific only. Everything else comes from the files above.
       - PORT=3000
       - NODE_ENV=${NODE_ENV:-production}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4o}
-      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-}
-      - OPENAI_FALLBACK_MODELS=${OPENAI_FALLBACK_MODELS:-}
-      - OPENAI_FINAL_FALLBACK_API_KEY=${OPENAI_FINAL_FALLBACK_API_KEY:-}
-      - OPENAI_FINAL_FALLBACK_MODEL=${OPENAI_FINAL_FALLBACK_MODEL:-}
-      - TENDERLY_ACCESS_KEY=${TENDERLY_ACCESS_KEY}
-      - TENDERLY_ACCOUNT_SLUG=${TENDERLY_ACCOUNT_SLUG}
-      - TENDERLY_PROJECT_SLUG=${TENDERLY_PROJECT_SLUG}
-      - RPC_BASE=${RPC_BASE:-https://mainnet.base.org}
-      - RPC_ETH=${RPC_ETH:-https://ethereum-rpc.publicnode.com}
-      - RPC_ARB=${RPC_ARB:-https://arb1.arbitrum.io/rpc}
-      - RPC_MONAD=${RPC_MONAD:-https://rpc.monad.xyz}
-      - RPC_MONAD_TESTNET=${RPC_MONAD_TESTNET:-https://testnet-rpc.monad.xyz}
-      - APY_DATABASE_URL=${APY_DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/fortress?sslmode=disable}
-      - APY_REDIS_URL=${APY_REDIS_URL:-redis://redis:6379}
-      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,https://fortress.bhattdev.in,https://api.fortress.bhattdev.in}
     depends_on:
-      - redis
-      - postgres
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - fortress-net
 
-  # ── 2. Redis Cache Service ──
+  # ── 3. Redis Cache Service ────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: fortress-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - fortress-net
 
-  # ── 3. PostgreSQL Database ──
+  # ── 4. PostgreSQL Database ────────────────────────────────────────────────
+  # Credentials match deploy/local-defaults.env. POSTGRES_HOST_AUTH_METHOD=trust
+  # was removed: it only applies when the data volume is first created, so once
+  # a volume exists with a password set it does nothing but make auth failures
+  # confusing. If you are upgrading from the old stack, the old volume still has
+  # the old role — `docker compose down -v` to recreate it.
   postgres:
     image: postgres:16-alpine
     container_name: fortress-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: fortress
+      POSTGRES_PASSWORD: fortress
       POSTGRES_DB: fortress
-      POSTGRES_HOST_AUTH_METHOD: trust
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fortress -d fortress"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - fortress-net
 
-  # ── 2. Frontend Web Application (Next.js 16 + Wagmi + AppKit) ──
+  # ── 5. Frontend Web Application (Next.js 16 + Wagmi + AppKit) ─────────────
   frontend:
     build:
       context: ./Monad_frontend/fortress-fe-main
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* are inlined at build time, so these must be build args.
+      # They interpolate from the shell and ./.env — env_file does not apply to
+      # the build stage.
       args:
-        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:-07ca18e4747adb59df06ff3f799b61ba}
+        NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:-}
         NEXT_PUBLIC_MONAD_RPC_URL: ${NEXT_PUBLIC_MONAD_RPC_URL:-https://rpc.monad.xyz}
         NEXT_PUBLIC_MONAD_TESTNET_RPC_URL: ${NEXT_PUBLIC_MONAD_TESTNET_RPC_URL:-https://testnet-rpc.monad.xyz}
-        NEXT_PUBLIC_BASE_RPC_URL: ${NEXT_PUBLIC_BASE_RPC_URL:-https://mainnet.base.org}
-        NEXT_PUBLIC_MONAD_USDC_ADDRESS: ${NEXT_PUBLIC_MONAD_USDC_ADDRESS:-}
-        NEXT_PUBLIC_MONAD_WMON_ADDRESS: ${NEXT_PUBLIC_MONAD_WMON_ADDRESS:-}
-        NEXT_PUBLIC_MONAD_WETH_ADDRESS: ${NEXT_PUBLIC_MONAD_WETH_ADDRESS:-}
-        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://api.fortress.bhattdev.in}
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:3000}
         BACKEND_API_ORIGIN: ${BACKEND_API_ORIGIN:-http://backend:3000}
     container_name: fortress-frontend
     restart: unless-stopped
@@ -97,14 +136,11 @@ services:
       - path: ./Monad_frontend/fortress-fe-main/.env
         required: false
     environment:
+      # Container-specific only: the port it listens on, and how it reaches the
+      # backend across the compose network.
       - PORT=3001
       - NODE_ENV=production
       - BACKEND_API_ORIGIN=http://backend:3000
-      - NEXT_PUBLIC_API_BASE=${NEXT_PUBLIC_API_BASE:-https://api.fortress.bhattdev.in}
-      - NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:-07ca18e4747adb59df06ff3f799b61ba}
-      - NEXT_PUBLIC_MONAD_RPC_URL=${NEXT_PUBLIC_MONAD_RPC_URL:-https://rpc.monad.xyz}
-      - NEXT_PUBLIC_MONAD_TESTNET_RPC_URL=${NEXT_PUBLIC_MONAD_TESTNET_RPC_URL:-https://testnet-rpc.monad.xyz}
-      - NEXT_PUBLIC_BASE_RPC_URL=${NEXT_PUBLIC_BASE_RPC_URL:-https://mainnet.base.org}
     depends_on:
       - backend
     networks:

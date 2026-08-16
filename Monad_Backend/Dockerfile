@@ -36,6 +36,13 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
 COPY tsconfig.json ./
 
+# Operational scripts. `npm run migrate` (scripts/run-migrations.ts) applies the
+# SQL in src/core/services/apy/db/migrations — including 009, which retires the
+# Base-era chain-8453 rows the APY poller would otherwise keep skipping. Without
+# this COPY the script simply isn't in the image and the migration can never be
+# run against a containerised deployment.
+COPY scripts/ ./scripts/
+
 # Expose Fastify port
 EXPOSE 3000
 
