@@ -6,8 +6,12 @@
 
 State at submission: **Phases 0–4 complete** (Phase 4 task 14 skipped by operator
 instruction). **Phase 6 skipped** by operator instruction. **Phases 7–9 partially
-delivered** — written and tested, but not exercised against a live deployment (§9).
-**Phase 5 not started.** See [What is NOT done](#6-what-is-not-done-and-what-blocks-it).
+delivered** — written and tested, but not exercised against a live deployment (§10).
+**Phase 5 partially delivered**, **Phase 10 not started**.
+See [What is NOT done](#6-what-is-not-done-and-what-blocks-it).
+
+The plan this port follows is `FORTRESS_MONAD_PORT_PROMPT.md` at the repository root,
+which defines **Phases 0–10**.
 
 ```
 632 tests pass, 0 fail          (unit + fuzz + invariant + gas)
@@ -48,11 +52,12 @@ literals in doc comments during Phase 4.
 | 2 | De-Base the codebase | ✅ |
 | 3 | Measured gas envelopes, `MAX_STEPS` re-derived 30 → 10 | ✅ |
 | 4 | Adapters — LI.FI rewrite, Aave V3 + Neverland, shMONAD | ✅ |
-| 5 | Executor / transient-storage hardening | ❌ not started |
-| 6 | Cross-chain + keeper design | ⏭️ **skipped by operator** |
-| 7 | Timelock ownership wiring | 🟡 scripted + tested |
-| 8 | Security pass | 🟡 access-control sweep executable; Slither not run |
-| 9 | Deployment verification | 🟡 script written; broadcast blocked — see §6 |
+| 5 | Leverage + exit executors (Morpho flash loans) | 🟡 ported + guarded; **no live fork test** — see §7 |
+| 6 | `CrossChainRouter` | ⏭️ **skipped by operator** |
+| 7 | Upgrade timelock + full test matrix | 🟡 scripted + tested, not exercised live |
+| 8 | Security audit | 🟡 access-control sweep executable; Slither not run |
+| 9 | Deployment, configuration, operations | 🟡 verification script written; broadcast blocked — see §6 |
+| 10 | Documentation and handoff | ❌ not started |
 
 Full rationale for every divergence from Base is in `DECISIONS.md` (D0-1 … D4-13).
 
@@ -155,10 +160,12 @@ through `LiFiAdapter` by design, so there is one allowlist to maintain rather th
 
 ## 6. What is NOT done, and what blocks it
 
-**Phase 5 is not started. Phase 6 was skipped by instruction. Phases 7–9 are written and
-tested but never run against a live deployment** — see §9 for exactly what that means.
+**Phase 6 was skipped by instruction. Phase 10 has not been started. Phases 5 and 7–9
+are written and tested but never run against a live deployment** — see §7 and §10 for
+exactly what that means.
 
-Realistic remaining effort: **6–10 hours**, most of it Phase 5 and a real audit pass.
+Realistic remaining effort: **8–13 hours**, most of it Phase 5's live fork tests, a real
+audit pass, and the Phase 10 handoff docs.
 
 Two items have been open since Phase 0 and need the operator, not the implementer:
 
@@ -175,6 +182,12 @@ Also outstanding, from `docs/gas-model.md` §8:
   sensitive to.
 - Caps for `DepositEntry[]` / `WithdrawEntry[]` / `sweepTokens[]` have not been derived.
 
+**Phase 10 (documentation and handoff) has not been started.** The plan asks for
+`docs/monad-differences.md`, one doc per contract, a final `ADDRESSES.md`, and an
+operator handoff covering the three empty adapter slots. `DECISIONS.md`, `ADDRESSES.md`,
+`docs/gas-model.md` and `src/adapters/PENDING.md` already cover much of that ground, but
+they were written as working records, not as the handoff the plan specifies.
+
 Three adapter slots stay **empty on purpose**: Compound V3, Aerodrome and YO have no
 counterparty on Monad (verified against the 175-file canonical registry). `adapterId`
 3/4/5 are reserved and must not be filled with substitutes — see `src/adapters/PENDING.md`.
@@ -182,7 +195,34 @@ Aave was added under explicit operator instruction and did **not** consume a res
 
 ---
 
-## 7. Reproducing the evidence
+## 7. Phase 5 — what is actually done, and what is not
+
+The plan defines Phase 5 as **leverage and exit executors**: leveraged looping built on
+Morpho flash loans — borrow, swap, re-supply — and the unwind. Its precondition was
+satisfied in Phase 0, which confirmed both Morpho `flashLoan` and `TSTORE`/`TLOAD` on
+Monad.
+
+| Plan item | State |
+|---|---|
+| Port `MorphoLeverageExecutor` / `MorphoExitExecutor` unchanged in logic | ✅ in `src/`, with unit + fuzz tests |
+| Callback guard: spoofed non-Morpho caller reverts | ✅ `testCallbackRejectsNonMorphoCaller` |
+| Callback guard: mismatched transient commitment reverts | ✅ `testCallbackRejectsWhenNoActiveFlash` |
+| Rebuild the swap leg's DEX target **and selector** allowlist from Monad venues | ❌ mechanism exists, never populated — the same gap as §5 |
+| **Fork test: open and close a real leveraged position on a live Monad Morpho market** | ❌ `setUp()` reverts — still on Phase 2 Base fixtures |
+| Assert I1 and I3 on **failure** paths, not just success paths | ❓ not verified |
+
+The contracts and their callback guards are real and tested. What is missing is the part
+that would prove they work against Monad: both executor fork suites fail at `setUp()`
+because their fixtures are still Base addresses, the same category as the Euler / Fluid /
+Morpho / PendleStrategyAdapter suites noted in §8.
+
+**Estimated 2–4 hours**, dominated by rebuilding the fixtures against a live Monad Morpho
+market. Do not treat the passing unit tests as evidence the leverage loop works on Monad —
+they run entirely against `MockMorphoBlue`.
+
+---
+
+## 8. Reproducing the evidence
 
 ```bash
 cd Monad_Contract/Fortress
@@ -205,7 +245,7 @@ forge test --match-path "test/gas/*" -vv
 Pre-existing fork suites for Euler / Fluid / Morpho / PendleStrategyAdapter still carry
 Phase 2 Base fixtures and fail; they are excluded from CI and were not in Phase 4 scope.
 
-## 8. Where to read further
+## 9. Where to read further
 
 | Document | Contents |
 |---|---|
@@ -214,11 +254,12 @@ Phase 2 Base fixtures and fail; they are excluded from CI and were not in Phase 
 | `ADDRESSES.md` | Address book with per-address verification evidence |
 | `docs/gas-model.md` | Measured cost curve, `MAX_STEPS` derivation, per-adapter envelopes |
 | `src/adapters/PENDING.md` | The three empty slots and the bar any replacement must clear |
+| `../../FORTRESS_MONAD_PORT_PROMPT.md` | The master plan this port follows — Phases 0–10, invariants I1–I13, standing rules |
 
 
 ---
 
-## 9. Phases 7–9, partially delivered
+## 10. Phases 7–9, partially delivered
 
 Added after the main body above, under an explicit "skip cross-chain, do the rest fast"
 instruction. These are **written and tested but not exercised against a live
