@@ -29,8 +29,10 @@ const PCT_PRESETS = [25, 50, 75, 100] as const;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Convert raw USDC units (6 dp) to a display string */
-function formatUsdc(raw: string): string {
+function formatUsdc(raw?: string | null): string {
+  if (!raw) return "$0.00";
   const n = Number(raw) / 1e6;
+  if (!Number.isFinite(n)) return "$0.00";
   return "$" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
