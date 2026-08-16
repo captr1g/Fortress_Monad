@@ -126,9 +126,15 @@ async function main(): Promise<void> {
     );
     for (const e of identity.errors) console.error(`  - ${e}`);
     console.error(
-      "\n  Leave these unset in .env to use the verified Monad defaults in\n" +
-      "  src/chains/evm/config/monad.ts. Refusing to start rather than build\n" +
-      "  transactions against addresses that do not exist.",
+      "\n  Leaving any of these unset is safe: the code falls back to the Monad\n" +
+      "  mainnet addresses verified in ADDRESSES.md.\n" +
+      "\n  To find WHICH file is supplying them — under Docker the backend reads\n" +
+      "  deploy/local-defaults.env, then ./.env, then Monad_Backend/.env, and the\n" +
+      "  last one wins — run:\n" +
+      "\n      npm run doctor:env            # report\n" +
+      "      npm run doctor:env -- --fix   # comment them out (writes a .bak)\n" +
+      "\n  Refusing to start rather than build transactions against addresses that\n" +
+      "  do not exist.",
     );
     process.exit(1);
   } else {

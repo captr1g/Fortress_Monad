@@ -10,6 +10,7 @@
     "dev": "tsx watch src/boot.ts",
     "start": "node --import tsx src/boot.ts",
     "migrate": "tsx scripts/run-migrations.ts",
+    "doctor:env": "tsx scripts/check-env-chain.ts",
     "build": "npm run typecheck && npm run test && tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config vitest.config.ts",
