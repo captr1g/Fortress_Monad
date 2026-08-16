@@ -24,7 +24,12 @@ import {
 import { base } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 
-const PRIVATE_KEY = "0x20832bda2467a00d62e8d6109be56bd19d835ca90a108f4040089ac25a0779dd";
+const PRIVATE_KEY = process.env.TEST_PRIVATE_KEY as Hex;
+if (!PRIVATE_KEY) {
+  throw new Error(
+    "TEST_PRIVATE_KEY is not set. Use a throwaway test key — never a key holding real funds."
+  );
+}
 const RPC_URL = process.env.RPC_BASE!;
 const PENDLE_CHAIN_ID = 8453;
 
