@@ -14,7 +14,13 @@ import "./interfaces/ICrossChainRouter.sol";
 ///         Deposits: pulls USDC, bridges via LiFi Diamond to destination chain.
 ///         Withdrawals: records intent, keeper fulfills, user claims.
 /// @dev Uses raw LiFi calldata — frontend builds bridge params via LiFi API.
-contract CrossChainRouter is ICrossChainRouter, Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable, ReentrancyGuardTransient {
+contract CrossChainRouter is
+    ICrossChainRouter,
+    Ownable2StepUpgradeable,
+    PausableUpgradeable,
+    UUPSUpgradeable,
+    ReentrancyGuardTransient
+{
     using SafeERC20 for IERC20;
 
     // ──────────── Immutables ────────────
@@ -111,20 +117,25 @@ contract CrossChainRouter is ICrossChainRouter, Ownable2StepUpgradeable, Pausabl
         emit BridgeSelectorUpdated(selector, approved);
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     // ══════════════════════════════════════════════════════════════
     //                    CROSS-CHAIN DEPOSIT
     // ══════════════════════════════════════════════════════════════
 
     /// @inheritdoc ICrossChainRouter
-    function depositCrossChain(
-        uint256 usdcAmount,
-        uint256 destChainId,
-        bytes calldata lifiData,
-        uint256 deadline
-    ) external whenNotPaused nonReentrant returns (bytes32 requestId) {
+    function depositCrossChain(uint256 usdcAmount, uint256 destChainId, bytes calldata lifiData, uint256 deadline)
+        external
+        whenNotPaused
+        nonReentrant
+        returns (bytes32 requestId)
+    {
         if (usdcAmount == 0) revert ZeroAmount();
         if (block.timestamp > deadline) revert DeadlineExpired();
 

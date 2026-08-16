@@ -14,11 +14,7 @@ interface IFortStrategyExecutor {
         bytes data; // adapter-specific encoded params
     }
 
-    event StrategyExecuted(
-        address indexed user,
-        uint256 stepCount,
-        uint256 gasUsed
-    );
+    event StrategyExecuted(address indexed user, uint256 stepCount, uint256 gasUsed);
     event AdapterRegistered(uint8 indexed adapterId, address adapter);
     event AdapterRemoved(uint8 indexed adapterId);
 

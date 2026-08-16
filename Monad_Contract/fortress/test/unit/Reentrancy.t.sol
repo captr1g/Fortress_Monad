@@ -96,14 +96,7 @@ contract ReentrantSwapper is IReentryHook {
         entries[0] = FortSwapRouter.SwapDepositEntry(protocolKey, 10000, 0, "");
 
         // Attempt re-entry — should revert with ReentrancyGuardReentrantCall
-        try router.swapAndDeposit(
-            address(inputToken),
-            1,
-            0,
-            type(uint256).max,
-            swaps,
-            entries
-        ) {
+        try router.swapAndDeposit(address(inputToken), 1, 0, type(uint256).max, swaps, entries) {
             // If this succeeds, reentrancy guard failed
         } catch {
             // Expected: reentrancy blocked
@@ -125,10 +118,8 @@ contract ReentrancyTest is Test {
         bridge = new MockLiFiBridge(address(reentrantUsdc));
 
         CrossChainRouter impl = new CrossChainRouter(address(reentrantUsdc), address(bridge));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(CrossChainRouter.initialize, (keeper, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(CrossChainRouter.initialize, (keeper, owner)));
         router = CrossChainRouter(address(proxy));
 
         // Register bridge selector used by MockLiFiBridge
@@ -191,10 +182,8 @@ contract ReentrancyTest is Test {
 
         // Deploy vault
         FortVault vaultImpl = new FortVault();
-        ERC1967Proxy vaultProxy = new ERC1967Proxy(
-            address(vaultImpl),
-            abi.encodeCall(FortVault.initialize, (address(usdc)))
-        );
+        ERC1967Proxy vaultProxy =
+            new ERC1967Proxy(address(vaultImpl), abi.encodeCall(FortVault.initialize, (address(usdc))));
         FortVault swapVault = FortVault(address(vaultProxy));
 
         // Register protocol
@@ -206,8 +195,7 @@ contract ReentrancyTest is Test {
         // Note: usdc is the USDC, reentrantWeth is the input token
         FortSwapRouter routerImpl = new FortSwapRouter(address(usdc), address(lifi));
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(routerImpl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(this), address(swapVault)))
+            address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(swapVault)))
         );
         FortSwapRouter swapRouter = FortSwapRouter(address(routerProxy));
         swapRouter.setApprovedDex(address(lifi), true);
@@ -238,14 +226,7 @@ contract ReentrancyTest is Test {
 
         // The initial call triggers transferFrom which fires the hook.
         // The hook tries to re-enter — should be blocked by ReentrancyGuardTransient.
-        try swapRouter.swapAndDeposit(
-            address(reentrantWeth),
-            100e6,
-            0,
-            type(uint256).max,
-            swaps,
-            entries
-        ) {} catch {}
+        try swapRouter.swapAndDeposit(address(reentrantWeth), 100e6, 0, type(uint256).max, swaps, entries) {} catch {}
         vm.stopPrank();
 
         // Verify the hook was triggered

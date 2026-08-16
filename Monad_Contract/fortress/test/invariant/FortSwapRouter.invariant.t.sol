@@ -60,14 +60,7 @@ contract FortSwapRouterHandler is Test {
         entries[0] = FortSwapRouter.SwapDepositEntry(protocolKey, 10000, 0, "");
 
         vm.prank(user);
-        try router.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            swaps,
-            entries
-        ) {} catch {}
+        try router.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, entries) {} catch {}
     }
 
     /// @notice Toggle pause/unpause.
@@ -95,10 +88,8 @@ contract FortSwapRouterInvariantTest is Test {
 
         // Deploy vault
         FortVault vaultImpl = new FortVault();
-        ERC1967Proxy vaultProxy = new ERC1967Proxy(
-            address(vaultImpl),
-            abi.encodeCall(FortVault.initialize, (address(usdc)))
-        );
+        ERC1967Proxy vaultProxy =
+            new ERC1967Proxy(address(vaultImpl), abi.encodeCall(FortVault.initialize, (address(usdc))));
         vault = FortVault(address(vaultProxy));
 
         // Deploy protocol + register
@@ -113,8 +104,7 @@ contract FortSwapRouterInvariantTest is Test {
         // Deploy FortSwapRouter
         FortSwapRouter routerImpl = new FortSwapRouter(address(usdc), address(lifi));
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(routerImpl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
+            address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
         );
         swapRouter = FortSwapRouter(address(routerProxy));
         swapRouter.setApprovedDex(address(lifi), true);

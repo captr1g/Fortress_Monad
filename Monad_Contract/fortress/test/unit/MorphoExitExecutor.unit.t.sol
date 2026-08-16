@@ -36,10 +36,7 @@ contract MorphoExitExecutorUnitTest is Test {
         oracle = new MockOracle(ORACLE_PRICE_1TO1);
 
         MorphoExitExecutor impl = new MorphoExitExecutor(address(morpho));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(MorphoExitExecutor.initialize, (owner))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(MorphoExitExecutor.initialize, (owner)));
         exit = MorphoExitExecutor(address(proxy));
         exit.setApprovedDex(address(dex), true);
         exit.setApprovedSwapSelector(MockDex.swapExact.selector, true);
@@ -54,14 +51,13 @@ contract MorphoExitExecutorUnitTest is Test {
     }
 
     function _market() internal view returns (IMorphoBlue.MarketParams memory) {
-        return
-            IMorphoBlue.MarketParams({
-                loanToken: address(usdc),
-                collateralToken: address(collat),
-                oracle: address(oracle),
-                irm: address(0),
-                lltv: LLTV
-            });
+        return IMorphoBlue.MarketParams({
+            loanToken: address(usdc),
+            collateralToken: address(collat),
+            oracle: address(oracle),
+            irm: address(0),
+            lltv: LLTV
+        });
     }
 
     // Open a position directly on the mock: user supplies `collateralAmt` and borrows `debtAmt`.
@@ -78,16 +74,12 @@ contract MorphoExitExecutorUnitTest is Test {
         vm.stopPrank();
     }
 
-    function _swapCalldata(
-        uint256 amountIn,
-        uint256 amountOut,
-        address recipient
-    ) internal view returns (bytes memory) {
-        return
-            abi.encodeCall(
-                MockDex.swapExact,
-                (address(collat), amountIn, address(usdc), amountOut, recipient)
-            );
+    function _swapCalldata(uint256 amountIn, uint256 amountOut, address recipient)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return abi.encodeCall(MockDex.swapExact, (address(collat), amountIn, address(usdc), amountOut, recipient));
     }
 
     function testFullExitToLoanReturnsSurplusUsdc() public {
@@ -97,11 +89,7 @@ contract MorphoExitExecutorUnitTest is Test {
 
         // Unwind swap: sell all collateral for 1000 USDC.
         uint256 swapOut = 1000e6;
-        bytes memory swapCalldata = _swapCalldata(
-            collateralAmt,
-            swapOut,
-            address(exit)
-        );
+        bytes memory swapCalldata = _swapCalldata(collateralAmt, swapOut, address(exit));
 
         MorphoExitExecutor.ExitParams memory p = MorphoExitExecutor.ExitParams({
             market: _market(),
@@ -119,19 +107,12 @@ contract MorphoExitExecutorUnitTest is Test {
         exit.exitPosition(p);
 
         // Debt cleared, collateral gone, surplus USDC (1000 - 600) to user.
-        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(
-            _market(),
-            user
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 0, "debt not cleared");
         assertEq(collateral, 0, "collateral not withdrawn");
         assertEq(usdc.balanceOf(user), swapOut - debtAmt, "surplus mismatch");
         assertEq(usdc.balanceOf(address(exit)), 0, "executor holds dust usdc");
-        assertEq(
-            collat.balanceOf(address(exit)),
-            0,
-            "executor holds dust collateral"
-        );
+        assertEq(collat.balanceOf(address(exit)), 0, "executor holds dust collateral");
     }
 
     function testFullExitToCollateralKeepsResidualCollateral() public {
@@ -142,11 +123,7 @@ contract MorphoExitExecutorUnitTest is Test {
         // Sell only part of the collateral (0.65 cbBTC) for exactly enough to repay.
         uint256 sellIn = 65000000; // 0.65 cbBTC
         uint256 swapOut = 600e6;
-        bytes memory swapCalldata = _swapCalldata(
-            sellIn,
-            swapOut,
-            address(exit)
-        );
+        bytes memory swapCalldata = _swapCalldata(sellIn, swapOut, address(exit));
 
         MorphoExitExecutor.ExitParams memory p = MorphoExitExecutor.ExitParams({
             market: _market(),
@@ -163,22 +140,11 @@ contract MorphoExitExecutorUnitTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(
-            _market(),
-            user
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 0, "debt not cleared");
-        assertEq(
-            collateral,
-            0,
-            "collateral should be fully withdrawn from morpho"
-        );
+        assertEq(collateral, 0, "collateral should be fully withdrawn from morpho");
         // Residual collateral returned to user = total - sold.
-        assertEq(
-            collat.balanceOf(user),
-            collateralAmt - sellIn,
-            "residual collateral mismatch"
-        );
+        assertEq(collat.balanceOf(user), collateralAmt - sellIn, "residual collateral mismatch");
         assertEq(usdc.balanceOf(user), 0, "no surplus usdc expected");
     }
 
@@ -191,11 +157,7 @@ contract MorphoExitExecutorUnitTest is Test {
         uint256 repay = 200e6;
         uint256 withdraw = 25000000;
         uint256 swapOut = 250e6;
-        bytes memory swapCalldata = _swapCalldata(
-            withdraw,
-            swapOut,
-            address(exit)
-        );
+        bytes memory swapCalldata = _swapCalldata(withdraw, swapOut, address(exit));
 
         MorphoExitExecutor.ExitParams memory p = MorphoExitExecutor.ExitParams({
             market: _market(),
@@ -212,16 +174,9 @@ contract MorphoExitExecutorUnitTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(
-            _market(),
-            user
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, debtAmt - repay, "debt not reduced correctly");
-        assertEq(
-            collateral,
-            collateralAmt - withdraw,
-            "collateral not reduced correctly"
-        );
+        assertEq(collateral, collateralAmt - withdraw, "collateral not reduced correctly");
         assertEq(usdc.balanceOf(user), swapOut - repay, "surplus mismatch");
     }
 
@@ -242,12 +197,7 @@ contract MorphoExitExecutorUnitTest is Test {
         });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoExitExecutor.UnauthorizedDex.selector,
-                address(rogue)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoExitExecutor.UnauthorizedDex.selector, address(rogue)));
         exit.exitPosition(p);
     }
 
@@ -269,13 +219,7 @@ contract MorphoExitExecutorUnitTest is Test {
         });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoExitExecutor.SlippageExceeded.selector,
-                600e6,
-                900e6
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoExitExecutor.SlippageExceeded.selector, 600e6, 900e6));
         exit.exitPosition(p);
     }
 
@@ -358,13 +302,7 @@ contract MorphoExitExecutorUnitTest is Test {
         });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoExitExecutor.RepayExceedsDebt.selector,
-                700e6,
-                600e6
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoExitExecutor.RepayExceedsDebt.selector, 700e6, 600e6));
         exit.exitPosition(p);
     }
 
@@ -383,13 +321,7 @@ contract MorphoExitExecutorUnitTest is Test {
         });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoExitExecutor.WithdrawExceedsCollateral.selector,
-                2e8,
-                1e8
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoExitExecutor.WithdrawExceedsCollateral.selector, 2e8, 1e8));
         exit.exitPosition(p);
     }
 
@@ -408,13 +340,7 @@ contract MorphoExitExecutorUnitTest is Test {
         });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoExitExecutor.SwapInputExceedsWithdrawn.selector,
-                2e8,
-                1e8
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoExitExecutor.SwapInputExceedsWithdrawn.selector, 2e8, 1e8));
         exit.exitPosition(p);
     }
 
@@ -479,16 +405,13 @@ contract MorphoExitExecutorUnitTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 0, "debt not cleared after unpause");
     }
 
     function testPauseNonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         exit.pause();
     }
 
@@ -509,10 +432,7 @@ contract MorphoExitExecutorUnitTest is Test {
         usdc.mint(address(exit), 100e6);
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         exit.rescueToken(address(usdc), user, 100e6);
     }
 
@@ -520,10 +440,7 @@ contract MorphoExitExecutorUnitTest is Test {
 
     function testOnlyOwnerSetApprovedDex() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         exit.setApprovedDex(address(0xBEEF), true);
     }
 
@@ -580,7 +497,7 @@ contract MorphoExitExecutorUnitTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, , uint128 collateral) = morpho.positionFor(_market(), user);
+        (,, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(collateral, 0, "collateral should be zero after full exit");
     }
 
@@ -606,10 +523,7 @@ contract MorphoExitExecutorUnitTest is Test {
 
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoExitExecutor.UnauthorizedSelector.selector,
-                MockDex.swapRevert.selector
-            )
+            abi.encodeWithSelector(MorphoExitExecutor.UnauthorizedSelector.selector, MockDex.swapRevert.selector)
         );
         exit.exitPosition(p);
     }
@@ -625,12 +539,7 @@ contract MorphoExitExecutorUnitTest is Test {
 
     function testSetApprovedSwapSelector_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                user
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         exit.setApprovedSwapSelector(bytes4(0x12345678), true);
     }
 }

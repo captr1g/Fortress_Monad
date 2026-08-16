@@ -27,19 +27,13 @@ contract PendleStrategyAdapterUnitTest is Test {
         usdc = new MockUSDC();
         ptToken = new MockERC20("PT-wcgUSD-18DEC2025", "PT-wcgUSD", 6);
         lpToken = new MockERC20("Pendle LP", "PENDLE-LP", 18);
-        wrappedLp = new MockERC20(
-            "Pendle Wrapped LP",
-            "PENDLE-LPT-WRAPPED",
-            18
-        );
+        wrappedLp = new MockERC20("Pendle Wrapped LP", "PENDLE-LPT-WRAPPED", 18);
         router = new MockPendleRouter(address(usdc), address(ptToken), 1e6);
         lpWrapper = new MockLPWrapper(address(lpToken), address(wrappedLp));
 
         PendleStrategyAdapter impl = new PendleStrategyAdapter(address(router));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, owner)));
         adapter = PendleStrategyAdapter(address(proxy));
 
         // Approve the wrapper on the adapter
@@ -56,31 +50,23 @@ contract PendleStrategyAdapterUnitTest is Test {
     }
 
     function _ownableErr(address who) internal pure returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                who
-            );
+        return abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), who);
     }
 
-    function _buildData(
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut,
-        bool useFullBalance
-    ) internal view returns (bytes memory) {
-        bytes memory routerCalldata = abi.encodeCall(
-            MockPendleRouter.mockSwap,
-            (address(usdc), amountIn, address(ptToken), amountOut)
+    function _buildData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut, bool useFullBalance)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes memory routerCalldata =
+            abi.encodeCall(MockPendleRouter.mockSwap, (address(usdc), amountIn, address(ptToken), amountOut));
+        return abi.encode(
+            uint8(0), // sub-action 0 = router relay
+            address(ptToken),
+            minAmountOut,
+            useFullBalance,
+            routerCalldata
         );
-        return
-            abi.encode(
-                uint8(0), // sub-action 0 = router relay
-                address(ptToken),
-                minAmountOut,
-                useFullBalance,
-                routerCalldata
-            );
     }
 
     // ──────────────────────────── happy path: exact mode ────────────────────────────
@@ -93,13 +79,8 @@ contract PendleStrategyAdapterUnitTest is Test {
         bytes memory data = _buildData(amountIn, amountOut, 1000e6, false);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 received) = adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        (address tokenOut, uint256 received) =
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(tokenOut, address(ptToken));
         assertEq(received, amountOut);
@@ -114,10 +95,8 @@ contract PendleStrategyAdapterUnitTest is Test {
         uint256 amountOut = 520e6;
         usdc.mint(address(adapter), amountIn);
 
-        bytes memory routerCalldata = abi.encodeCall(
-            MockPendleRouter.mockSwap,
-            (address(usdc), amountIn, address(ptToken), amountOut)
-        );
+        bytes memory routerCalldata =
+            abi.encodeCall(MockPendleRouter.mockSwap, (address(usdc), amountIn, address(ptToken), amountOut));
         bytes memory data = abi.encode(
             uint8(0),
             address(ptToken),
@@ -143,10 +122,8 @@ contract PendleStrategyAdapterUnitTest is Test {
     // ──────────────────────────── full balance mode: zero balance reverts ────────────────────────────
 
     function test_swap_fullBalanceMode_zeroBalance_reverts() public {
-        bytes memory routerCalldata = abi.encodeCall(
-            MockPendleRouter.mockSwap,
-            (address(usdc), 100e6, address(ptToken), 105e6)
-        );
+        bytes memory routerCalldata =
+            abi.encodeCall(MockPendleRouter.mockSwap, (address(usdc), 100e6, address(ptToken), 105e6));
         bytes memory data = abi.encode(
             uint8(0),
             address(ptToken),
@@ -157,13 +134,7 @@ contract PendleStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectRevert(PendleStrategyAdapter.ZeroBalance.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            0,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 0, address(0), data);
     }
 
     // ──────────────────────────── onlyExecutor ────────────────────────────
@@ -172,13 +143,7 @@ contract PendleStrategyAdapterUnitTest is Test {
         bytes memory data = _buildData(100e6, 105e6, 100e6, false);
         vm.prank(nonOwner);
         vm.expectRevert(PendleStrategyAdapter.OnlyExecutor.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 100e6, address(0), data);
     }
 
     // ──────────────────────────── SlippageExceeded ────────────────────────────
@@ -189,28 +154,13 @@ contract PendleStrategyAdapterUnitTest is Test {
         uint256 minAmountOut = 100e6; // but we require 100
         usdc.mint(address(adapter), amountIn);
 
-        bytes memory data = _buildData(
-            amountIn,
-            amountOut,
-            minAmountOut,
-            false
-        );
+        bytes memory data = _buildData(amountIn, amountOut, minAmountOut, false);
 
         vm.prank(executorAddr);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                PendleStrategyAdapter.SlippageExceeded.selector,
-                amountOut,
-                minAmountOut
-            )
+            abi.encodeWithSelector(PendleStrategyAdapter.SlippageExceeded.selector, amountOut, minAmountOut)
         );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── PendleCallFailed ────────────────────────────
@@ -219,10 +169,7 @@ contract PendleStrategyAdapterUnitTest is Test {
         uint256 amountIn = 100e6;
         usdc.mint(address(adapter), amountIn);
 
-        bytes memory routerCalldata = abi.encodeCall(
-            MockPendleRouter.mockRevert,
-            ()
-        );
+        bytes memory routerCalldata = abi.encodeCall(MockPendleRouter.mockRevert, ());
         bytes memory data = abi.encode(
             uint8(0),
             address(ptToken),
@@ -233,13 +180,7 @@ contract PendleStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectRevert("MockPendleRouter: forced revert");
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── UnsupportedAction ────────────────────────────
@@ -250,13 +191,7 @@ contract PendleStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectRevert(PendleStrategyAdapter.UnsupportedAction.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, address(usdc), 100e6, address(0), data);
     }
 
     // ──────────────────────────── paused ────────────────────────────
@@ -268,16 +203,8 @@ contract PendleStrategyAdapterUnitTest is Test {
         bytes memory data = _buildData(100e6, 105e6, 100e6, false);
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()")))
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()"))));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 100e6, address(0), data);
     }
 
     function test_unpause_resumesExecution() public {
@@ -290,13 +217,8 @@ contract PendleStrategyAdapterUnitTest is Test {
         bytes memory data = _buildData(amountIn, amountOut, 100e6, false);
 
         vm.prank(executorAddr);
-        (, uint256 received) = adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        (, uint256 received) =
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
         assertEq(received, amountOut);
     }
 
@@ -348,10 +270,7 @@ contract PendleStrategyAdapterUnitTest is Test {
     function test_constructor_zeroExecutor_reverts() public {
         PendleStrategyAdapter impl2 = new PendleStrategyAdapter(address(router));
         vm.expectRevert(PendleStrategyAdapter.ZeroExecutor.selector);
-        new ERC1967Proxy(
-            address(impl2),
-            abi.encodeCall(PendleStrategyAdapter.initialize, (address(0), owner))
-        );
+        new ERC1967Proxy(address(impl2), abi.encodeCall(PendleStrategyAdapter.initialize, (address(0), owner)));
     }
 
     // ──────────────────────────── event emission ────────────────────────────
@@ -366,20 +285,8 @@ contract PendleStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectEmit(true, true, false, true);
-        emit PendleStrategyAdapter.PendleSwapExecuted(
-            address(usdc),
-            address(ptToken),
-            amountIn,
-            amountOut,
-            minOut
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        emit PendleStrategyAdapter.PendleSwapExecuted(address(usdc), address(ptToken), amountIn, amountOut, minOut);
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── zero output token reverts ────────────────────────────
@@ -388,10 +295,8 @@ contract PendleStrategyAdapterUnitTest is Test {
         uint256 amountIn = 100e6;
         usdc.mint(address(adapter), amountIn);
 
-        bytes memory routerCalldata = abi.encodeCall(
-            MockPendleRouter.mockSwap,
-            (address(usdc), amountIn, address(ptToken), 105e6)
-        );
+        bytes memory routerCalldata =
+            abi.encodeCall(MockPendleRouter.mockSwap, (address(usdc), amountIn, address(ptToken), 105e6));
         bytes memory data = abi.encode(
             uint8(0),
             address(0), // zero output token
@@ -402,13 +307,7 @@ contract PendleStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectRevert(PendleStrategyAdapter.ZeroAddress.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── zero minAmountOut reverts ────────────────────────────
@@ -421,13 +320,7 @@ contract PendleStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectRevert(PendleStrategyAdapter.ZeroMinAmountOut.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── wrap LP: happy path ────────────────────────────
@@ -436,20 +329,11 @@ contract PendleStrategyAdapterUnitTest is Test {
         uint256 amount = 100e18;
         lpToken.mint(address(adapter), amount);
 
-        bytes memory data = abi.encode(
-            uint8(1),
-            address(lpWrapper),
-            address(wrappedLp)
-        );
+        bytes memory data = abi.encode(uint8(1), address(lpWrapper), address(wrappedLp));
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 received) = adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(lpToken),
-            amount,
-            address(0),
-            data
-        );
+        (address tokenOut, uint256 received) =
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, address(lpToken), amount, address(0), data);
 
         assertEq(tokenOut, address(wrappedLp));
         assertEq(received, amount); // 1:1 wrap
@@ -464,46 +348,21 @@ contract PendleStrategyAdapterUnitTest is Test {
         lpToken.mint(address(adapter), amount);
         address fakeWrapper = address(0xDEAD);
 
-        bytes memory data = abi.encode(
-            uint8(1),
-            fakeWrapper,
-            address(wrappedLp)
-        );
+        bytes memory data = abi.encode(uint8(1), fakeWrapper, address(wrappedLp));
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                PendleStrategyAdapter.UnauthorizedWrapper.selector,
-                fakeWrapper
-            )
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(lpToken),
-            amount,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(PendleStrategyAdapter.UnauthorizedWrapper.selector, fakeWrapper));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(lpToken), amount, address(0), data);
     }
 
     // ──────────────────────────── wrap LP: zero balance reverts ────────────────────────────
 
     function test_wrapLp_zeroBalance_reverts() public {
-        bytes memory data = abi.encode(
-            uint8(1),
-            address(lpWrapper),
-            address(wrappedLp)
-        );
+        bytes memory data = abi.encode(uint8(1), address(lpWrapper), address(wrappedLp));
 
         vm.prank(executorAddr);
         vm.expectRevert(PendleStrategyAdapter.ZeroBalance.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(lpToken),
-            0,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(lpToken), 0, address(0), data);
     }
 
     // ──────────────────────────── invalid sub-action reverts ────────────────────────────
@@ -513,19 +372,8 @@ contract PendleStrategyAdapterUnitTest is Test {
         bytes memory data = abi.encode(uint8(99), address(ptToken), uint256(1));
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                PendleStrategyAdapter.InvalidSubAction.selector,
-                99
-            )
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(PendleStrategyAdapter.InvalidSubAction.selector, 99));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 100e6, address(0), data);
     }
 
     // ──────────────────────────── residual input sweep (NM-012) ────────────────────────────
@@ -540,13 +388,7 @@ contract PendleStrategyAdapterUnitTest is Test {
         bytes memory data = _buildData(amountIn, amountOut, 1000e6, false);
 
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(usdc.balanceOf(address(adapter)), 0, "adapter holds residual input");
         assertEq(ptToken.balanceOf(executorAddr), amountOut, "output mismatch");

@@ -41,8 +41,7 @@ contract PendleForkTest is Test {
         // Deploy adapter
         PendleAdapter adapterImpl = new PendleAdapter(USDC, PENDLE_ROUTER);
         ERC1967Proxy adapterProxy = new ERC1967Proxy(
-            address(adapterImpl),
-            abi.encodeCall(PendleAdapter.initialize, (address(this), address(vault)))
+            address(adapterImpl), abi.encodeCall(PendleAdapter.initialize, (address(this), address(vault)))
         );
         adapter = PendleAdapter(address(adapterProxy));
 

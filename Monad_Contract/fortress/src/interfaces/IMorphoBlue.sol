@@ -11,12 +11,8 @@ interface IMorphoBlue {
         uint256 lltv;
     }
 
-    function supplyCollateral(
-        MarketParams memory marketParams,
-        uint256 assets,
-        address onBehalf,
-        bytes calldata data
-    ) external;
+    function supplyCollateral(MarketParams memory marketParams, uint256 assets, address onBehalf, bytes calldata data)
+        external;
 
     function borrow(
         MarketParams memory marketParams,
@@ -34,22 +30,12 @@ interface IMorphoBlue {
         bytes calldata data
     ) external returns (uint256 assetsRepaid, uint256 sharesRepaid);
 
-    function withdrawCollateral(
-        MarketParams memory marketParams,
-        uint256 assets,
-        address onBehalf,
-        address receiver
-    ) external;
+    function withdrawCollateral(MarketParams memory marketParams, uint256 assets, address onBehalf, address receiver)
+        external;
 
-    function setAuthorization(
-        address authorized,
-        bool newIsAuthorized
-    ) external;
+    function setAuthorization(address authorized, bool newIsAuthorized) external;
 
-    function isAuthorized(
-        address authorizer,
-        address authorized
-    ) external view returns (bool);
+    function isAuthorized(address authorizer, address authorized) external view returns (bool);
 
     // ──────────────────────────────────────────────────────────────────────
     //  Reads needed for on-chain, oracle-based borrow sizing
@@ -60,17 +46,10 @@ interface IMorphoBlue {
     /// @return supplyShares supply-side shares
     /// @return borrowShares borrow-side shares (convert to assets via market totals)
     /// @return collateral collateral amount in collateral-token units
-    function position(
-        bytes32 id,
-        address user
-    )
+    function position(bytes32 id, address user)
         external
         view
-        returns (
-            uint256 supplyShares,
-            uint128 borrowShares,
-            uint128 collateral
-        );
+        returns (uint256 supplyShares, uint128 borrowShares, uint128 collateral);
 
     /// @notice Aggregate market state, used to convert borrow shares into assets.
     /// @return totalSupplyAssets total supplied assets
@@ -79,9 +58,7 @@ interface IMorphoBlue {
     /// @return totalBorrowShares total borrow shares
     /// @return lastUpdate last interest accrual timestamp
     /// @return fee market fee (scaled by 1e18)
-    function market(
-        bytes32 id
-    )
+    function market(bytes32 id)
         external
         view
         returns (
@@ -99,11 +76,7 @@ interface IMorphoBlue {
     /// @notice Free flash loan of `assets` of `token`. Morpho sends the tokens, calls
     ///         `onMorphoFlashLoan(assets, data)` on msg.sender, then pulls `assets` back
     ///         via transferFrom (caller must approve). No fee on Morpho Blue.
-    function flashLoan(
-        address token,
-        uint256 assets,
-        bytes calldata data
-    ) external;
+    function flashLoan(address token, uint256 assets, bytes calldata data) external;
 }
 
 /// @title IMorphoFlashLoanCallback — callback invoked by Morpho during a flash loan.

@@ -25,10 +25,8 @@ contract DeployExitExecutor is Script {
         vm.startBroadcast(deployerKey);
 
         MorphoExitExecutor exitImpl = new MorphoExitExecutor(MORPHO_BLUE);
-        ERC1967Proxy exitProxy = new ERC1967Proxy(
-            address(exitImpl),
-            abi.encodeCall(MorphoExitExecutor.initialize, (deployer))
-        );
+        ERC1967Proxy exitProxy =
+            new ERC1967Proxy(address(exitImpl), abi.encodeCall(MorphoExitExecutor.initialize, (deployer)));
         MorphoExitExecutor exitExecutor = MorphoExitExecutor(address(exitProxy));
 
         exitExecutor.setApprovedDex(LIFI_DIAMOND, true);
@@ -36,26 +34,11 @@ contract DeployExitExecutor is Script {
         exitExecutor.setApprovedDex(BASESWAP, true);
 
         // LiFi sub-routers on Base (same set the SwapStrategyAdapter allowlists).
-        exitExecutor.setApprovedDex(
-            0xAC4c6e212A361c968F1725b4d055b47E63F80b75,
-            true
-        );
-        exitExecutor.setApprovedDex(
-            0xC87De04e2EC1F4282dFF2933A2D58199f688fC3d,
-            true
-        );
-        exitExecutor.setApprovedDex(
-            0x0D05a7D3448512B78fa8A9e46c4872C88C4a0D05,
-            true
-        );
-        exitExecutor.setApprovedDex(
-            0x6131B5fae19EA4f9D964eAc0408E4408b66337b5,
-            true
-        );
-        exitExecutor.setApprovedDex(
-            0xC10eE9031F2a0B84766A86B55a8D90F357910fb4,
-            true
-        );
+        exitExecutor.setApprovedDex(0xAC4c6e212A361c968F1725b4d055b47E63F80b75, true);
+        exitExecutor.setApprovedDex(0xC87De04e2EC1F4282dFF2933A2D58199f688fC3d, true);
+        exitExecutor.setApprovedDex(0x0D05a7D3448512B78fa8A9e46c4872C88C4a0D05, true);
+        exitExecutor.setApprovedDex(0x6131B5fae19EA4f9D964eAc0408E4408b66337b5, true);
+        exitExecutor.setApprovedDex(0xC10eE9031F2a0B84766A86B55a8D90F357910fb4, true);
 
         vm.stopBroadcast();
 
@@ -63,9 +46,6 @@ contract DeployExitExecutor is Script {
         console.log("MorphoExitExecutor:", address(exitExecutor));
         console.log("");
         console.log("=== Update your backend .env with ===");
-        console.log(
-            "FORTRESS_MORPHO_EXIT_EXECUTOR=%s",
-            vm.toString(address(exitExecutor))
-        );
+        console.log("FORTRESS_MORPHO_EXIT_EXECUTOR=%s", vm.toString(address(exitExecutor)));
     }
 }

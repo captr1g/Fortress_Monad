@@ -21,10 +21,8 @@ contract DeployLeverageExecutor is Script {
 
         // Deploy implementation + proxy
         MorphoLeverageExecutor impl = new MorphoLeverageExecutor(MORPHO_BLUE);
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(MorphoLeverageExecutor.initialize, (deployer))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(MorphoLeverageExecutor.initialize, (deployer)));
         MorphoLeverageExecutor leverageExecutor = MorphoLeverageExecutor(address(proxy));
 
         // Allowlist DEX routers

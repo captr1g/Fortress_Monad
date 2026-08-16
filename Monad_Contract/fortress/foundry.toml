@@ -3,4 +3,65 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+# Pinned in Phase 1. Previously unpinned, which let the compiler default drift and
+# silently change emitted opcodes (port prompt §2).
+#
+# solc 0.8.26: highest version satisfying every pragma in src/ (mix of ^0.8.20 and
+# ^0.8.26) and the version the Base deployment was audited under.
+solc_version = "0.8.26"
+
+# evm_version: Monad's Cancun feature set was confirmed on-chain in Phase 0 —
+# PUSH0 (0x5F), MCOPY (0x5E) and TSTORE/TLOAD (0x5D/0x5C) all execute on mainnet
+# 143 and testnet 10143. TSTORE/TLOAD is load-bearing: MorphoLeverageExecutor and
+# MorphoExitExecutor guard their flash-loan callbacks with a transient-storage
+# commitment hash, and every adapter inherits ReentrancyGuardTransient.
+# See RESEARCH.md §2.
+evm_version = "cancun"
+
+# via_ir: RETAINED, but no longer justified by the contract-size limit.
+# Phase 0 measured FortStrategyExecutor at 14,497 bytes — under even Base's 24 KB
+# cap and far under Monad's 128 KB. It is kept only for its optimisation behaviour
+# on the deeply-nested adapter dispatch. See DECISIONS.md D0-4.
+via_ir = true
+optimizer = true
+optimizer_runs = 200
+
+remappings = [
+    "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+    "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+    "erc4626-tests/=lib/openzeppelin-contracts-upgradeable/lib/erc4626-tests/",
+    "forge-std/=lib/forge-std/src/",
+    "halmos-cheatcodes/=lib/openzeppelin-contracts-upgradeable/lib/halmos-cheatcodes/src/",
+    "openzeppelin-contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/",
+    "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+]
+
+[rpc_endpoints]
+monad = "${MONAD_RPC_URL}"
+monad_testnet = "${MONAD_TESTNET_RPC_URL}"
+
+[etherscan]
+# Monad verification. Confirm the verifier endpoint before Phase 9 — this is
+# recorded UNVERIFIED in RESEARCH.md §11.
+monad = { key = "${MONADSCAN_API_KEY}", chain = 143, url = "${MONAD_VERIFIER_URL}" }
+monad_testnet = { key = "${MONADSCAN_API_KEY}", chain = 10143, url = "${MONAD_VERIFIER_URL}" }
+
+[fuzz]
+runs = 256
+
+[invariant]
+runs = 256
+depth = 30
+
+# CI profile. Gas assertions must NOT run here under upstream Foundry: Phase 0
+# measured upstream at ~2,165 gas per marginal cold SLOAD versus Monad's ~8,300
+# (3.85x under-report). Gas jobs run only under Monad Foundry. See DECISIONS.md D0-3.
+[profile.ci]
+verbosity = 3
+
+[profile.ci.fuzz]
+runs = 512
+
+[profile.ci.invariant]
+runs = 512
+depth = 30

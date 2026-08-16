@@ -177,5 +177,4 @@ contract FortVaultDepositTest is FortVaultTestBase {
 
         assertGt(erc4626.balanceOf(user), 0);
     }
-
 }

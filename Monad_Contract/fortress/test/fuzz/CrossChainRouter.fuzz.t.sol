@@ -22,10 +22,8 @@ contract CrossChainRouterFuzzTest is Test {
         bridge = new MockLiFiBridge(address(usdc));
 
         CrossChainRouter impl = new CrossChainRouter(address(usdc), address(bridge));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(CrossChainRouter.initialize, (keeper, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(CrossChainRouter.initialize, (keeper, owner)));
         router = CrossChainRouter(address(proxy));
 
         // Register bridge selectors used by MockLiFiBridge

@@ -272,7 +272,7 @@ contract FortVaultDepositFeeTest is FortVaultTestBase {
         vault.deposit(entries);
 
         uint256 expectedFee = (amount * 200) / 10000; // 20 USDC
-        uint256 expectedNet = amount - expectedFee;    // 980 USDC
+        uint256 expectedNet = amount - expectedFee; // 980 USDC
 
         assertEq(mockUsdc.balanceOf(owner) - ownerBefore, expectedFee);
         assertEq(erc4626.balanceOf(user), expectedNet); // mock 1:1
@@ -314,7 +314,7 @@ contract FortVaultDepositFeeTest is FortVaultTestBase {
         vault.deposit(entries);
 
         uint256 expectedFee = (total * 200) / 10000; // 20 USDC
-        uint256 netTotal = total - expectedFee;       // 980 USDC
+        uint256 netTotal = total - expectedFee; // 980 USDC
 
         assertEq(mockUsdc.balanceOf(owner) - ownerBefore, expectedFee);
 
@@ -395,5 +395,4 @@ contract FortVaultDepositFeeTest is FortVaultTestBase {
     function test_defaultFeeRecipient_isOwner() public view {
         assertEq(vault.feeRecipient(), owner);
     }
-
 }

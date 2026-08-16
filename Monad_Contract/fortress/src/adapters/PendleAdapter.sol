@@ -71,15 +71,16 @@ contract PendleAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradea
 
     /// @notice Buy PT tokens via Pendle router
     /// @dev data = abi.encode(address market, uint256 minPtOut, ApproxParams guessPtOut, uint256 deadline)
-    function depositFor(uint256 usdcAmount, address receiver, bytes calldata data) external override onlyVault nonReentrant {
+    function depositFor(uint256 usdcAmount, address receiver, bytes calldata data)
+        external
+        override
+        onlyVault
+        nonReentrant
+    {
         if (usdcAmount == 0) revert ZeroAmount();
 
-        (
-            address market,
-            uint256 minPtOut,
-            IPendleRouter.ApproxParams memory guessPtOut,
-            uint256 deadline
-        ) = abi.decode(data, (address, uint256, IPendleRouter.ApproxParams, uint256));
+        (address market, uint256 minPtOut, IPendleRouter.ApproxParams memory guessPtOut, uint256 deadline) =
+            abi.decode(data, (address, uint256, IPendleRouter.ApproxParams, uint256));
 
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (!isApprovedMarket[market]) revert UnauthorizedMarket(market);
@@ -115,16 +116,17 @@ contract PendleAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradea
     /// @dev data = abi.encode(address market, address ptToken, uint256 minTokenOut, bool postMaturity, uint256 deadline)
     ///      For postMaturity: also needs YT address encoded as 6th param:
     ///      abi.encode(market, ptToken, minTokenOut, true, deadline, ytToken)
-    function redeemFor(uint256 shares, address receiver, address owner, bytes calldata data) external override onlyVault nonReentrant returns (uint256 usdcOut) {
+    function redeemFor(uint256 shares, address receiver, address owner, bytes calldata data)
+        external
+        override
+        onlyVault
+        nonReentrant
+        returns (uint256 usdcOut)
+    {
         if (shares == 0) revert ZeroAmount();
 
-        (
-            address market,
-            address ptToken,
-            uint256 minTokenOut,
-            bool postMaturity,
-            uint256 deadline
-        ) = abi.decode(data, (address, address, uint256, bool, uint256));
+        (address market, address ptToken, uint256 minTokenOut, bool postMaturity, uint256 deadline) =
+            abi.decode(data, (address, address, uint256, bool, uint256));
 
         if (block.timestamp > deadline) revert DeadlineExpired();
         if (!isApprovedMarket[market]) revert UnauthorizedMarket(market);
@@ -151,7 +153,7 @@ contract PendleAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradea
 
         if (postMaturity) {
             // Decode YT address from extended data
-            (, , , , , address ytToken) = abi.decode(data, (address, address, uint256, bool, uint256, address));
+            (,,,,, address ytToken) = abi.decode(data, (address, address, uint256, bool, uint256, address));
 
             // Approve router for PT
             IERC20(ptToken).forceApprove(address(router), shares);

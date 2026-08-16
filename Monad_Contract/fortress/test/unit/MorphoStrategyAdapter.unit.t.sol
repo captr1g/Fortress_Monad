@@ -36,10 +36,8 @@ contract MorphoStrategyAdapterUnitTest is Test {
         oracle = new MockOracle(ORACLE_PRICE_1TO1);
 
         MorphoStrategyAdapter impl = new MorphoStrategyAdapter(address(morpho));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, owner)));
         adapter = MorphoStrategyAdapter(address(proxy));
 
         // Fund morpho with a USDC reserve for borrows.
@@ -49,14 +47,13 @@ contract MorphoStrategyAdapterUnitTest is Test {
     }
 
     function _market() internal view returns (IMorphoBlue.MarketParams memory) {
-        return
-            IMorphoBlue.MarketParams({
-                loanToken: address(usdc),
-                collateralToken: address(yoUSD),
-                oracle: address(oracle),
-                irm: address(0),
-                lltv: LLTV_915
-            });
+        return IMorphoBlue.MarketParams({
+            loanToken: address(usdc),
+            collateralToken: address(yoUSD),
+            oracle: address(oracle),
+            irm: address(0),
+            lltv: LLTV_915
+        });
     }
 
     /// @dev Supply `amount` of collateral for `user` via the adapter (helper for borrow tests).
@@ -64,36 +61,25 @@ contract MorphoStrategyAdapterUnitTest is Test {
         yoUSD.mint(address(adapter), amount);
         vm.prank(executorAddr);
         adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            address(yoUSD),
-            amount,
-            user,
-            abi.encode(_market())
+            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, address(yoUSD), amount, user, abi.encode(_market())
         );
     }
 
     /// @dev Encode borrow data (market, targetLtv, maxBorrow, minBorrow=0 unless given).
-    function _borrowData(
-        uint256 targetLtvWad,
-        uint256 maxBorrow
-    ) internal view returns (bytes memory) {
+    function _borrowData(uint256 targetLtvWad, uint256 maxBorrow) internal view returns (bytes memory) {
         return abi.encode(_market(), targetLtvWad, maxBorrow, uint256(0));
     }
 
-    function _borrowData(
-        uint256 targetLtvWad,
-        uint256 maxBorrow,
-        uint256 minBorrow
-    ) internal view returns (bytes memory) {
+    function _borrowData(uint256 targetLtvWad, uint256 maxBorrow, uint256 minBorrow)
+        internal
+        view
+        returns (bytes memory)
+    {
         return abi.encode(_market(), targetLtvWad, maxBorrow, minBorrow);
     }
 
     function _ownableErr(address who) internal pure returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                who
-            );
+        return abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), who);
     }
 
     // ──────────────────────────── onlyExecutor ────────────────────────────
@@ -102,11 +88,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
         vm.prank(nonExecutor);
         vm.expectRevert(MorphoStrategyAdapter.OnlyExecutor.selector);
         adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            address(yoUSD),
-            1e18,
-            user,
-            abi.encode(_market())
+            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, address(yoUSD), 1e18, user, abi.encode(_market())
         );
     }
 
@@ -119,17 +101,13 @@ contract MorphoStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            address(yoUSD),
-            amount,
-            user,
-            abi.encode(_market())
+            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, address(yoUSD), amount, user, abi.encode(_market())
         );
 
         assertEq(tokenOut, address(0));
         assertEq(amountOut, 0);
 
-        (, , uint128 collateral) = morpho.positionFor(_market(), user);
+        (,, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(collateral, uint128(amount));
     }
 
@@ -143,19 +121,14 @@ contract MorphoStrategyAdapterUnitTest is Test {
         uint256 expected = 80e6;
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        (address tokenOut, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
 
         assertEq(tokenOut, address(usdc));
         assertEq(amountOut, expected);
         assertEq(usdc.balanceOf(executorAddr), expected);
 
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, uint128(expected));
     }
 
@@ -176,13 +149,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
         );
 
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
     }
 
     function test_borrow_secondCallOnlyBorrowsTheGap() public {
@@ -190,24 +157,13 @@ contract MorphoStrategyAdapterUnitTest is Test {
 
         // First borrow to 50%.
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
         assertEq(usdc.balanceOf(executorAddr), 50e6);
 
         // Now target 80%: should borrow only the 30 USDC gap, not another 80.
         vm.prank(executorAddr);
-        (, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        (, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
         assertEq(amountOut, 30e6);
         assertEq(usdc.balanceOf(executorAddr), 80e6);
     }
@@ -216,13 +172,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
         // No supply step — position has zero collateral.
         vm.prank(executorAddr);
         vm.expectRevert(MorphoStrategyAdapter.NoCollateral.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
     }
 
     function test_borrow_revertsWhenOraclePriceZero() public {
@@ -230,48 +180,22 @@ contract MorphoStrategyAdapterUnitTest is Test {
         oracle.setPrice(0);
         vm.prank(executorAddr);
         vm.expectRevert(MorphoStrategyAdapter.OraclePriceZero.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
     }
 
     function test_borrow_revertsWhenBelowDustFloor() public {
         _supply(100e18);
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(MorphoStrategyAdapter.BorrowBelowMinimum.selector, 80e6, 100e6)
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 1_000e6, 100e6)
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoStrategyAdapter.BorrowBelowMinimum.selector, 80e6, 100e6));
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 1_000e6, 100e6));
     }
 
     function test_borrow_revertsWhenComputedExceedsCeiling() public {
         _supply(100e18);
         // Target 80% => wants 80 USDC, but ceiling is only 50 USDC.
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoStrategyAdapter.BorrowExceedsCeiling.selector,
-                80e6,
-                50e6
-            )
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 50e6)
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoStrategyAdapter.BorrowExceedsCeiling.selector, 80e6, 50e6));
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 50e6));
     }
 
     function test_borrow_revertsWhenTargetLtvAtOrAboveLltv() public {
@@ -291,39 +215,19 @@ contract MorphoStrategyAdapterUnitTest is Test {
         _supply(100e18);
         // Borrow to 80% first.
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
         // Asking for 50% now would require *repaying*, so there is nothing to borrow.
         vm.prank(executorAddr);
         vm.expectRevert(MorphoStrategyAdapter.NothingToBorrow.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
     }
 
     function test_borrow_revertsWhenPaused() public {
         _supply(100e18);
         adapter.pause();
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()")))
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.8e18, 100e6)
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()"))));
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.8e18, 100e6));
     }
 
     // ──────────────────────────── REPAY ────────────────────────────
@@ -332,13 +236,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
         // Supply collateral, then borrow to 50% (= 50 USDC) to create debt.
         _supply(100e18);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
         uint256 borrowAmount = 50e6;
 
         // Now repay: executor transfers USDC to the adapter first.
@@ -346,18 +244,13 @@ contract MorphoStrategyAdapterUnitTest is Test {
         usdc.mint(address(adapter), repayAmount);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc),
-            repayAmount,
-            user,
-            abi.encode(_market())
-        );
+        (address tokenOut, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), repayAmount, user, abi.encode(_market()));
 
         assertEq(tokenOut, address(0));
         assertEq(amountOut, 0);
 
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, uint128(borrowAmount - repayAmount));
     }
 
@@ -365,13 +258,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
         // Supply collateral, then borrow 50 USDC.
         _supply(100e18);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
         // Debt is now 50 USDC.
 
         // Try to repay 80 USDC (30 more than actual debt).
@@ -382,13 +269,8 @@ contract MorphoStrategyAdapterUnitTest is Test {
         uint256 execBalBefore = usdc.balanceOf(executorAddr);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc),
-            repayAmount,
-            user,
-            abi.encode(_market())
-        );
+        (address tokenOut, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), repayAmount, user, abi.encode(_market()));
 
         // Excess (30 USDC) should be returned to executor.
         assertEq(tokenOut, address(usdc), "tokenOut should be loanToken");
@@ -396,7 +278,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
         assertEq(usdc.balanceOf(executorAddr) - execBalBefore, 30e6, "executor should receive excess");
 
         // Debt should be fully repaid.
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 0, "debt should be zero");
 
         // Adapter should hold nothing.
@@ -407,31 +289,20 @@ contract MorphoStrategyAdapterUnitTest is Test {
         // Supply collateral, then borrow 50 USDC.
         _supply(100e18);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
 
         // Repay exactly 50 USDC (== debt). No excess expected.
         uint256 repayAmount = 50e6;
         usdc.mint(address(adapter), repayAmount);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc),
-            repayAmount,
-            user,
-            abi.encode(_market())
-        );
+        (address tokenOut, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), repayAmount, user, abi.encode(_market()));
 
         assertEq(tokenOut, address(0), "no excess => tokenOut should be zero");
         assertEq(amountOut, 0, "no excess => amountOut should be zero");
 
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 0, "debt should be zero");
         assertEq(usdc.balanceOf(address(adapter)), 0, "adapter should hold no USDC");
     }
@@ -439,21 +310,14 @@ contract MorphoStrategyAdapterUnitTest is Test {
     function test_repay_partialDebt_noExcess() public {
         _supply(100e18);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0), 0, user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
         // Debt = 50 USDC. Repay 20 — no excess expected.
         uint256 repayAmount = 20e6;
         usdc.mint(address(adapter), repayAmount);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc), repayAmount, user,
-            abi.encode(_market())
-        );
+        (address tokenOut, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), repayAmount, user, abi.encode(_market()));
 
         assertEq(tokenOut, address(0), "no excess token");
         assertEq(amountOut, 0, "no excess amount");
@@ -465,22 +329,15 @@ contract MorphoStrategyAdapterUnitTest is Test {
     function test_repay_fullOverpay_returnsAll() public {
         _supply(100e18);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0), 0, user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
         // Debt = 50 USDC. Repay 200 — excess = 150.
         uint256 repayAmount = 200e6;
         usdc.mint(address(adapter), repayAmount);
         uint256 execBefore = usdc.balanceOf(executorAddr);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc), repayAmount, user,
-            abi.encode(_market())
-        );
+        (address tokenOut, uint256 amountOut) =
+            adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), repayAmount, user, abi.encode(_market()));
 
         assertEq(tokenOut, address(usdc), "excess token = loanToken");
         assertEq(amountOut, 150e6, "excess = 150");
@@ -493,22 +350,14 @@ contract MorphoStrategyAdapterUnitTest is Test {
     function test_repay_adapterHoldsZeroAfterAnyRepay() public {
         _supply(100e18);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0), 0, user,
-            _borrowData(0.5e18, 100e6)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, _borrowData(0.5e18, 100e6));
         // Debt = 50 USDC. Repay in three steps: 10 (partial), 40 (exact remainder), 100 (overpay on zero).
         uint256[3] memory amounts = [uint256(10e6), uint256(40e6), uint256(100e6)];
 
         for (uint256 i; i < amounts.length; i++) {
             usdc.mint(address(adapter), amounts[i]);
             vm.prank(executorAddr);
-            adapter.execute(
-                IStrategyAdapter.ActionType.REPAY,
-                address(usdc), amounts[i], user,
-                abi.encode(_market())
-            );
+            adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), amounts[i], user, abi.encode(_market()));
             assertEq(usdc.balanceOf(address(adapter)), 0, "adapter must be empty after repay");
         }
     }
@@ -521,28 +370,20 @@ contract MorphoStrategyAdapterUnitTest is Test {
         yoUSD.mint(address(adapter), supply);
         vm.prank(executorAddr);
         adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            address(yoUSD),
-            supply,
-            user,
-            abi.encode(_market())
+            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, address(yoUSD), supply, user, abi.encode(_market())
         );
 
         uint256 withdrawAmount = 40e18;
         vm.prank(executorAddr);
         (address tokenOut, uint256 amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.WITHDRAW_COLLATERAL,
-            address(0),
-            0,
-            user,
-            abi.encode(_market(), withdrawAmount)
+            IStrategyAdapter.ActionType.WITHDRAW_COLLATERAL, address(0), 0, user, abi.encode(_market(), withdrawAmount)
         );
 
         assertEq(tokenOut, address(yoUSD));
         assertEq(amountOut, withdrawAmount);
         assertEq(yoUSD.balanceOf(executorAddr), withdrawAmount);
 
-        (, , uint128 collateral) = morpho.positionFor(_market(), user);
+        (,, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(collateral, uint128(supply - withdrawAmount));
     }
 
@@ -551,13 +392,7 @@ contract MorphoStrategyAdapterUnitTest is Test {
     function test_swapAction_reverts() public {
         vm.prank(executorAddr);
         vm.expectRevert(MorphoStrategyAdapter.UnsupportedAction.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            1e6,
-            user,
-            ""
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 1e6, user, "");
     }
 
     // ──────────────────────────── setExecutor ────────────────────────────

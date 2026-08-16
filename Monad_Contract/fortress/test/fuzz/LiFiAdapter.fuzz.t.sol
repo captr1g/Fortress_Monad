@@ -23,10 +23,8 @@ contract LiFiAdapterFuzzTest is Test {
         diamond = new MockLiFiDiamond(1e6); // 1:1
 
         LiFiAdapter impl = new LiFiAdapter(address(usdc), address(diamond));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(LiFiAdapter.initialize, (address(this), caller))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(LiFiAdapter.initialize, (address(this), caller)));
         adapter = LiFiAdapter(address(proxy));
         adapter.setApprovedDex(address(diamond), true);
     }

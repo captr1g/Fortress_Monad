@@ -18,5 +18,7 @@ interface IFortProtocolEx is IFortProtocol {
     /// @param owner Address that owns the shares being redeemed
     /// @param data Protocol-specific calldata
     /// @return usdcOut Amount of USDC sent to receiver
-    function redeemFor(uint256 shares, address receiver, address owner, bytes calldata data) external returns (uint256 usdcOut);
+    function redeemFor(uint256 shares, address receiver, address owner, bytes calldata data)
+        external
+        returns (uint256 usdcOut);
 }

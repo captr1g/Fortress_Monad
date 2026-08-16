@@ -45,20 +45,19 @@ contract FortStrategyExecutor is
     //                    ADAPTER REGISTRY
     // ══════════════════════════════════════════════════════════════
 
-    function registerAdapter(
-        uint8 adapterId,
-        address adapter
-    ) external onlyOwner {
-        if (adapters[adapterId] != address(0))
+    function registerAdapter(uint8 adapterId, address adapter) external onlyOwner {
+        if (adapters[adapterId] != address(0)) {
             revert AdapterAlreadyRegistered(adapterId);
+        }
         adapters[adapterId] = adapter;
         adapterIds.push(adapterId);
         emit AdapterRegistered(adapterId, adapter);
     }
 
     function removeAdapter(uint8 adapterId) external onlyOwner {
-        if (adapters[adapterId] == address(0))
+        if (adapters[adapterId] == address(0)) {
             revert AdapterNotRegistered(adapterId);
+        }
         delete adapters[adapterId];
         for (uint256 i; i < adapterIds.length; i++) {
             if (adapterIds[i] == adapterId) {
@@ -103,11 +102,7 @@ contract FortStrategyExecutor is
         uint256 startGas = gasleft();
 
         // Pull initial tokens from user
-        IERC20(inputToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            inputAmount
-        );
+        IERC20(inputToken).safeTransferFrom(msg.sender, address(this), inputAmount);
 
         // Execute each step sequentially, collect tokenOuts with delta-based verification.
         // Snapshots are taken AFTER the safeTransfer to the adapter so that delta
@@ -118,8 +113,8 @@ contract FortStrategyExecutor is
             if (adapter == address(0)) revert AdapterNotRegistered(steps[i].adapterId);
 
             uint256 amount;
-            bool isOutputOnly = steps[i].action == IStrategyAdapter.ActionType.BORROW ||
-                steps[i].action == IStrategyAdapter.ActionType.WITHDRAW_COLLATERAL;
+            bool isOutputOnly = steps[i].action == IStrategyAdapter.ActionType.BORROW
+                || steps[i].action == IStrategyAdapter.ActionType.WITHDRAW_COLLATERAL;
 
             if (isOutputOnly) {
                 amount = 0;
@@ -144,8 +139,8 @@ contract FortStrategyExecutor is
                 }
             }
 
-            (address tokenOut, uint256 amountOut) = IStrategyAdapter(adapter)
-                .execute(steps[i].action, steps[i].tokenIn, amount, msg.sender, steps[i].data);
+            (address tokenOut, uint256 amountOut) =
+                IStrategyAdapter(adapter).execute(steps[i].action, steps[i].tokenIn, amount, msg.sender, steps[i].data);
             tokenOuts[i] = tokenOut;
 
             // Delta-based output verification
@@ -171,12 +166,14 @@ contract FortStrategyExecutor is
                 }
 
                 if (snapshotFound) {
-                    if (balAfter - balBefore < amountOut)
+                    if (balAfter - balBefore < amountOut) {
                         revert InsufficientOutput(amountOut, balAfter - balBefore);
+                    }
                 } else {
                     // First-seen token: use post-transfer snapshot as baseline
-                    if (balAfter < amountOut)
+                    if (balAfter < amountOut) {
                         revert InsufficientOutput(amountOut, balAfter);
+                    }
                 }
             }
         }
@@ -220,11 +217,7 @@ contract FortStrategyExecutor is
     }
 
     /// @notice Rescue tokens accidentally sent to this contract
-    function rescueToken(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 

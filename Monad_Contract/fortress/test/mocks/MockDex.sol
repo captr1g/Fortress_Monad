@@ -9,13 +9,9 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 ///         Must be pre-funded with tokenOut.
 contract MockDex {
     /// @notice Deterministic swap: pull amountIn of tokenIn from caller, send amountOut of tokenOut.
-    function swapExact(
-        address tokenIn,
-        uint256 amountIn,
-        address tokenOut,
-        uint256 amountOut,
-        address recipient
-    ) external {
+    function swapExact(address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut, address recipient)
+        external
+    {
         IERC20(tokenIn).transferFrom(msg.sender, address(this), amountIn);
         IERC20(tokenOut).transfer(recipient, amountOut);
     }

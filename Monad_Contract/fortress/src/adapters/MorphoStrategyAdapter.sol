@@ -120,13 +120,7 @@ contract MorphoStrategyAdapter is
     ///   BORROW:              abi.encode(MarketParams, uint256 targetLtvWad, uint256 maxBorrow, uint256 minBorrow)
     ///   REPAY:               abi.encode(MarketParams)
     ///   WITHDRAW_COLLATERAL: abi.encode(MarketParams, uint256 withdrawAmount)
-    function execute(
-        ActionType action,
-        address token,
-        uint256 amount,
-        address beneficiary,
-        bytes calldata data
-    )
+    function execute(ActionType action, address token, uint256 amount, address beneficiary, bytes calldata data)
         external
         onlyExecutor
         whenNotPaused
@@ -145,16 +139,11 @@ contract MorphoStrategyAdapter is
         revert UnsupportedAction();
     }
 
-    function _supplyCollateral(
-        address token,
-        uint256 amount,
-        address beneficiary,
-        bytes calldata data
-    ) internal returns (address, uint256) {
-        IMorphoBlue.MarketParams memory params = abi.decode(
-            data,
-            (IMorphoBlue.MarketParams)
-        );
+    function _supplyCollateral(address token, uint256 amount, address beneficiary, bytes calldata data)
+        internal
+        returns (address, uint256)
+    {
+        IMorphoBlue.MarketParams memory params = abi.decode(data, (IMorphoBlue.MarketParams));
 
         IERC20(token).forceApprove(address(morpho), amount);
         morpho.supplyCollateral(params, amount, beneficiary, "");
@@ -172,23 +161,14 @@ contract MorphoStrategyAdapter is
     ///        bad oracle read or stale state can never borrow more than the user was shown.
     ///      - minBorrow: floor (loan-token units). Below this the gap is treated as dust and the
     ///        step reverts, avoiding pointless micro-borrows on the tail of a leverage loop.
-    function _borrow(
-        address beneficiary,
-        bytes calldata data
-    ) internal returns (address tokenOut, uint256 amountOut) {
-        (
-            IMorphoBlue.MarketParams memory params,
-            uint256 targetLtvWad,
-            uint256 maxBorrow,
-            uint256 minBorrow
-        ) = abi.decode(
-                data,
-                (IMorphoBlue.MarketParams, uint256, uint256, uint256)
-            );
+    function _borrow(address beneficiary, bytes calldata data) internal returns (address tokenOut, uint256 amountOut) {
+        (IMorphoBlue.MarketParams memory params, uint256 targetLtvWad, uint256 maxBorrow, uint256 minBorrow) =
+            abi.decode(data, (IMorphoBlue.MarketParams, uint256, uint256, uint256));
 
         // Target LTV must be sane and below the market liquidation LTV.
-        if (targetLtvWad == 0 || targetLtvWad >= params.lltv)
+        if (targetLtvWad == 0 || targetLtvWad >= params.lltv) {
             revert InvalidTargetLtv();
+        }
 
         bytes32 id = _marketId(params);
 
@@ -196,10 +176,7 @@ contract MorphoStrategyAdapter is
         morpho.accrueInterest(params);
 
         // Read the user's real position AFTER any prior supply step in this strategy.
-        (, uint128 borrowShares, uint128 collateral) = morpho.position(
-            id,
-            beneficiary
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.position(id, beneficiary);
 
         // Fail loudly and specifically when there is no collateral to borrow against.
         if (collateral == 0) revert NoCollateral();
@@ -208,11 +185,7 @@ contract MorphoStrategyAdapter is
         uint256 price = IOracle(params.oracle).price();
         if (price == 0) revert OraclePriceZero();
 
-        uint256 collateralValue = Math.mulDiv(
-            uint256(collateral),
-            price,
-            ORACLE_PRICE_SCALE
-        );
+        uint256 collateralValue = Math.mulDiv(uint256(collateral), price, ORACLE_PRICE_SCALE);
 
         // Target debt for the requested LTV, in loan-token units.
         uint256 targetDebt = Math.mulDiv(collateralValue, targetLtvWad, WAD);
@@ -226,52 +199,36 @@ contract MorphoStrategyAdapter is
         uint256 borrowAmount = targetDebt - currentDebt;
 
         // Dust guard
-        if (borrowAmount < minBorrow)
+        if (borrowAmount < minBorrow) {
             revert BorrowBelowMinimum(borrowAmount, minBorrow);
+        }
 
         // Defense in depth: never exceed the ceiling the user was shown off-chain.
-        if (borrowAmount > maxBorrow)
+        if (borrowAmount > maxBorrow) {
             revert BorrowExceedsCeiling(borrowAmount, maxBorrow);
+        }
 
         // Borrow on behalf of the user, receive funds HERE, then forward to the executor
         // so the next step (a swap) can consume them.
-        (uint256 borrowed, ) = morpho.borrow(
-            params,
-            borrowAmount,
-            0,
-            beneficiary,
-            address(this)
-        );
+        (uint256 borrowed,) = morpho.borrow(params, borrowAmount, 0, beneficiary, address(this));
 
         IERC20(params.loanToken).safeTransfer(executor, borrowed);
 
         emit BorrowExecuted(
-            beneficiary,
-            id,
-            uint256(collateral),
-            collateralValue,
-            targetLtvWad,
-            targetDebt,
-            currentDebt,
-            borrowed
+            beneficiary, id, uint256(collateral), collateralValue, targetLtvWad, targetDebt, currentDebt, borrowed
         );
 
         return (params.loanToken, borrowed);
     }
 
-    function _repay(
-        address token,
-        uint256 amount,
-        address beneficiary,
-        bytes calldata data
-    ) internal returns (address, uint256) {
-        IMorphoBlue.MarketParams memory params = abi.decode(
-            data,
-            (IMorphoBlue.MarketParams)
-        );
+    function _repay(address token, uint256 amount, address beneficiary, bytes calldata data)
+        internal
+        returns (address, uint256)
+    {
+        IMorphoBlue.MarketParams memory params = abi.decode(data, (IMorphoBlue.MarketParams));
 
         IERC20(token).forceApprove(address(morpho), amount);
-        (uint256 repaid, ) = morpho.repay(params, amount, 0, beneficiary, "");
+        (uint256 repaid,) = morpho.repay(params, amount, 0, beneficiary, "");
         IERC20(token).forceApprove(address(morpho), 0);
 
         // If Morpho consumed less than `amount` (repay capped at actual debt),
@@ -284,20 +241,15 @@ contract MorphoStrategyAdapter is
         return (address(0), 0);
     }
 
-    function _withdrawCollateral(
-        address beneficiary,
-        bytes calldata data
-    ) internal returns (address tokenOut, uint256 amountOut) {
-        (IMorphoBlue.MarketParams memory params, uint256 withdrawAmount) = abi
-            .decode(data, (IMorphoBlue.MarketParams, uint256));
+    function _withdrawCollateral(address beneficiary, bytes calldata data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
+        (IMorphoBlue.MarketParams memory params, uint256 withdrawAmount) =
+            abi.decode(data, (IMorphoBlue.MarketParams, uint256));
 
         // Withdraw to executor so next step can use it
-        morpho.withdrawCollateral(
-            params,
-            withdrawAmount,
-            beneficiary,
-            executor
-        );
+        morpho.withdrawCollateral(params, withdrawAmount, beneficiary, executor);
 
         return (params.collateralToken, withdrawAmount);
     }
@@ -307,36 +259,25 @@ contract MorphoStrategyAdapter is
     // ──────────────────────────────────────────────────────────────────────
 
     /// @dev Morpho market id = keccak256(abi.encode(MarketParams)).
-    function _marketId(
-        IMorphoBlue.MarketParams memory params
-    ) internal pure returns (bytes32) {
+    function _marketId(IMorphoBlue.MarketParams memory params) internal pure returns (bytes32) {
         return keccak256(abi.encode(params));
     }
 
     /// @dev Convert borrow shares into loan-token assets, rounding UP against the
     ///      borrower exactly as Morpho does (so we never under-count existing debt).
-    function _currentDebtAssets(
-        bytes32 id,
-        uint128 borrowShares
-    ) internal view returns (uint256) {
+    function _currentDebtAssets(bytes32 id, uint128 borrowShares) internal view returns (uint256) {
         if (borrowShares == 0) return 0;
-        (, , uint128 totalBorrowAssets, uint128 totalBorrowShares, , ) = morpho
-            .market(id);
-        return
-            Math.mulDiv(
-                uint256(borrowShares),
-                uint256(totalBorrowAssets) + VIRTUAL_ASSETS,
-                uint256(totalBorrowShares) + VIRTUAL_SHARES,
-                Math.Rounding.Ceil
-            );
+        (,, uint128 totalBorrowAssets, uint128 totalBorrowShares,,) = morpho.market(id);
+        return Math.mulDiv(
+            uint256(borrowShares),
+            uint256(totalBorrowAssets) + VIRTUAL_ASSETS,
+            uint256(totalBorrowShares) + VIRTUAL_SHARES,
+            Math.Rounding.Ceil
+        );
     }
 
     /// @notice Rescue tokens accidentally sent to adapter
-    function rescueToken(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 

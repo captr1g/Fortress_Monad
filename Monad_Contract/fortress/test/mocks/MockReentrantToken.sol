@@ -15,11 +15,7 @@ contract MockReentrantToken is ERC20 {
     address public hook;
     bool private _entered;
 
-    constructor(
-        string memory name_,
-        string memory symbol_,
-        uint8 decimals_
-    ) ERC20(name_, symbol_) {
+    constructor(string memory name_, string memory symbol_, uint8 decimals_) ERC20(name_, symbol_) {
         _decimals = decimals_;
     }
 
@@ -42,19 +38,12 @@ contract MockReentrantToken is ERC20 {
         }
     }
 
-    function transfer(
-        address to,
-        uint256 value
-    ) public override returns (bool) {
+    function transfer(address to, uint256 value) public override returns (bool) {
         _fireHook();
         return super.transfer(to, value);
     }
 
-    function transferFrom(
-        address from,
-        address to,
-        uint256 value
-    ) public override returns (bool) {
+    function transferFrom(address from, address to, uint256 value) public override returns (bool) {
         _fireHook();
         return super.transferFrom(from, to, value);
     }

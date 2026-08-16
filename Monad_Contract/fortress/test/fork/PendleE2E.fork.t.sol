@@ -18,12 +18,8 @@ interface IFortStrategyExecutor {
         bytes data;
     }
 
-    function executeStrategy(
-        address inputToken,
-        uint256 inputAmount,
-        Step[] calldata steps,
-        uint256 deadline
-    ) external;
+    function executeStrategy(address inputToken, uint256 inputAmount, Step[] calldata steps, uint256 deadline)
+        external;
 
     function getAdapter(uint8 adapterId) external view returns (address);
 }
@@ -44,15 +40,21 @@ struct SwapData {
     bool needScale;
 }
 
-enum SwapType { NONE, KYBERSWAP, ODOS, ETH_WETH, OKX, ONE_INCH, PARASWAP }
+enum SwapType {
+    NONE,
+    KYBERSWAP,
+    ODOS,
+    ETH_WETH,
+    OKX,
+    ONE_INCH,
+    PARASWAP
+}
 
 interface IPendleRouterSimple {
-    function swapExactTokenForPtSimple(
-        address receiver,
-        address market,
-        uint256 minPtOut,
-        TokenInput calldata input
-    ) external payable returns (uint256 netPtOut, uint256 netSyFee, uint256 netSyInterm);
+    function swapExactTokenForPtSimple(address receiver, address market, uint256 minPtOut, TokenInput calldata input)
+        external
+        payable
+        returns (uint256 netPtOut, uint256 netSyFee, uint256 netSyInterm);
 }
 
 contract PendleE2EForkTest is Test {
@@ -86,24 +88,17 @@ contract PendleE2EForkTest is Test {
             netTokenIn: amount,
             tokenMintSy: USDC,
             pendleSwap: address(0),
-            swapData: SwapData({
-                swapType: SwapType.NONE,
-                extRouter: address(0),
-                extCalldata: "",
-                needScale: false
-            })
+            swapData: SwapData({swapType: SwapType.NONE, extRouter: address(0), extCalldata: "", needScale: false})
         });
 
-        bytes memory routerCalldata = abi.encodeCall(
-            IPendleRouterSimple.swapExactTokenForPtSimple,
-            (adapter, PENDLE_MARKET, 1, input)
-        );
+        bytes memory routerCalldata =
+            abi.encodeCall(IPendleRouterSimple.swapExactTokenForPtSimple, (adapter, PENDLE_MARKET, 1, input));
 
         bytes memory adapterData = abi.encode(
-            uint8(0),       // sub-action 0: router relay
+            uint8(0), // sub-action 0: router relay
             PT_TOKEN,
-            uint256(1),     // minAmountOut
-            false,          // useFullBalance
+            uint256(1), // minAmountOut
+            false, // useFullBalance
             routerCalldata
         );
 
@@ -118,12 +113,7 @@ contract PendleE2EForkTest is Test {
         });
 
         vm.prank(user);
-        IFortStrategyExecutor(EXECUTOR).executeStrategy(
-            USDC,
-            amount,
-            steps,
-            block.timestamp + 600
-        );
+        IFortStrategyExecutor(EXECUTOR).executeStrategy(USDC, amount, steps, block.timestamp + 600);
 
         // Executor holds PT after strategy (output stays at executor for multi-step flows).
         uint256 ptOnExecutor = IERC20(PT_TOKEN).balanceOf(EXECUTOR);

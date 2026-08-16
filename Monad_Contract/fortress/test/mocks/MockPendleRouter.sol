@@ -107,12 +107,7 @@ contract MockPendleRouter {
 
     /// @notice Generic swap for PendleStrategyAdapter unit tests.
     ///         Pulls `amountIn` of `tokenIn` from caller, sends `amountOut` of `tokenOut` to caller.
-    function mockSwap(
-        address tokenIn,
-        uint256 amountIn,
-        address tokenOut,
-        uint256 amountOut
-    ) external {
+    function mockSwap(address tokenIn, uint256 amountIn, address tokenOut, uint256 amountOut) external {
         IERC20(tokenIn).safeTransferFrom(msg.sender, address(this), amountIn);
         IERC20(tokenOut).safeTransfer(msg.sender, amountOut);
     }

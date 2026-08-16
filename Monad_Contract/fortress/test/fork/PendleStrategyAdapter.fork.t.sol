@@ -35,12 +35,7 @@ enum SwapType {
 
 /// @notice Interface for the simple PT swap function on Pendle RouterV4.
 interface IPendleRouterSimple {
-    function swapExactTokenForPtSimple(
-        address receiver,
-        address market,
-        uint256 minPtOut,
-        TokenInput calldata input
-    )
+    function swapExactTokenForPtSimple(address receiver, address market, uint256 minPtOut, TokenInput calldata input)
         external
         payable
         returns (uint256 netPtOut, uint256 netSyFee, uint256 netSyInterm);
@@ -68,8 +63,7 @@ contract PendleStrategyAdapterForkTest is Test {
 
         PendleStrategyAdapter adapterImpl = new PendleStrategyAdapter(PENDLE_ROUTER);
         ERC1967Proxy adapterProxy = new ERC1967Proxy(
-            address(adapterImpl),
-            abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, address(this)))
+            address(adapterImpl), abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, address(this)))
         );
         adapter = PendleStrategyAdapter(address(adapterProxy));
 
@@ -78,35 +72,22 @@ contract PendleStrategyAdapterForkTest is Test {
     }
 
     /// @dev Build TokenInput struct for a direct USDC → SY (no external aggregator).
-    function _buildTokenInput(
-        uint256 amount
-    ) internal pure returns (TokenInput memory) {
-        return
-            TokenInput({
-                tokenIn: USDC,
-                netTokenIn: amount,
-                tokenMintSy: USDC, // USDC is accepted by the wcgUSD SY contract
-                pendleSwap: address(0),
-                swapData: SwapData({
-                    swapType: SwapType.NONE,
-                    extRouter: address(0),
-                    extCalldata: "",
-                    needScale: false
-                })
-            });
+    function _buildTokenInput(uint256 amount) internal pure returns (TokenInput memory) {
+        return TokenInput({
+            tokenIn: USDC,
+            netTokenIn: amount,
+            tokenMintSy: USDC, // USDC is accepted by the wcgUSD SY contract
+            pendleSwap: address(0),
+            swapData: SwapData({swapType: SwapType.NONE, extRouter: address(0), extCalldata: "", needScale: false})
+        });
     }
 
     /// @dev Encode full calldata for swapExactTokenForPtSimple that targets our adapter as receiver.
-    function _buildRouterCalldata(
-        uint256 amount,
-        uint256 minPtOut
-    ) internal view returns (bytes memory) {
+    function _buildRouterCalldata(uint256 amount, uint256 minPtOut) internal view returns (bytes memory) {
         TokenInput memory input = _buildTokenInput(amount);
-        return
-            abi.encodeCall(
-                IPendleRouterSimple.swapExactTokenForPtSimple,
-                (address(adapter), PENDLE_MARKET, minPtOut, input)
-            );
+        return abi.encodeCall(
+            IPendleRouterSimple.swapExactTokenForPtSimple, (address(adapter), PENDLE_MARKET, minPtOut, input)
+        );
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -131,43 +112,22 @@ contract PendleStrategyAdapterForkTest is Test {
         );
 
         // Execute via the adapter.
-        (address tokenOut, uint256 received) = adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            USDC,
-            amountIn,
-            address(0),
-            data
-        );
+        (address tokenOut, uint256 received) =
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, USDC, amountIn, address(0), data);
 
         // Assertions
         assertEq(tokenOut, PT_TOKEN, "output token is PT");
         assertGt(received, 0, "received PT > 0");
 
         // PT should be at the executor (this contract) since adapter transfers output there.
-        assertEq(
-            IERC20(PT_TOKEN).balanceOf(executorAddr),
-            received,
-            "executor holds PT"
-        );
+        assertEq(IERC20(PT_TOKEN).balanceOf(executorAddr), received, "executor holds PT");
 
         // Adapter should have no residual USDC or PT.
-        assertEq(
-            IERC20(USDC).balanceOf(address(adapter)),
-            0,
-            "no residual USDC"
-        );
-        assertEq(
-            IERC20(PT_TOKEN).balanceOf(address(adapter)),
-            0,
-            "no residual PT"
-        );
+        assertEq(IERC20(USDC).balanceOf(address(adapter)), 0, "no residual USDC");
+        assertEq(IERC20(PT_TOKEN).balanceOf(address(adapter)), 0, "no residual PT");
 
         // Approval cleared.
-        assertEq(
-            IERC20(USDC).allowance(address(adapter), PENDLE_ROUTER),
-            0,
-            "approval cleared"
-        );
+        assertEq(IERC20(USDC).allowance(address(adapter), PENDLE_ROUTER), 0, "approval cleared");
     }
 
     // ──────────────────────────────────────────────────────────────────────
@@ -214,10 +174,7 @@ contract PendleStrategyAdapterForkTest is Test {
 
         deal(USDC, address(adapter), amountIn);
 
-        bytes memory routerCalldata = _buildRouterCalldata(
-            amountIn,
-            absurdMinPtOut
-        );
+        bytes memory routerCalldata = _buildRouterCalldata(amountIn, absurdMinPtOut);
         bytes memory data = abi.encode(
             uint8(0), // sub-action 0: router relay
             PT_TOKEN,
@@ -229,12 +186,6 @@ contract PendleStrategyAdapterForkTest is Test {
         // The Pendle Router itself will revert — the adapter bubbles the
         // Router's raw error verbatim via assembly.
         vm.expectRevert();
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            USDC,
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, USDC, amountIn, address(0), data);
     }
 }

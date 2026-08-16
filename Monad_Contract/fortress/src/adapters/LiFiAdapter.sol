@@ -82,7 +82,12 @@ contract LiFiAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradeabl
 
     /// @notice Swap USDC via LiFi.
     ///         data = abi.encode(LibSwap.SwapData[], uint256 minOut, uint256 deadline)
-    function depositFor(uint256 usdcAmount, address receiver, bytes calldata data) external override onlyVault nonReentrant {
+    function depositFor(uint256 usdcAmount, address receiver, bytes calldata data)
+        external
+        override
+        onlyVault
+        nonReentrant
+    {
         (LibSwap.SwapData[] memory swapData, uint256 minOut, uint256 deadline) =
             abi.decode(data, (LibSwap.SwapData[], uint256, uint256));
 
@@ -118,7 +123,13 @@ contract LiFiAdapter is IFortProtocolEx, Ownable2StepUpgradeable, UUPSUpgradeabl
 
     /// @notice Swap back to USDC via LiFi.
     ///         data = abi.encode(address sourceToken, LibSwap.SwapData[], uint256 minUsdcOut, uint256 deadline)
-    function redeemFor(uint256 shares, address receiver, address owner, bytes calldata data) external override onlyVault nonReentrant returns (uint256 usdcOut) {
+    function redeemFor(uint256 shares, address receiver, address owner, bytes calldata data)
+        external
+        override
+        onlyVault
+        nonReentrant
+        returns (uint256 usdcOut)
+    {
         (address sourceToken, LibSwap.SwapData[] memory swapData, uint256 minUsdcOut, uint256 deadline) =
             abi.decode(data, (address, LibSwap.SwapData[], uint256, uint256));
 

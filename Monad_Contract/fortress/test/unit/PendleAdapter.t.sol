@@ -27,10 +27,7 @@ contract PendleAdapterTest is Test {
         pendleRouter = new MockPendleRouter(address(usdc), address(ptToken), 1e6); // 1:1
 
         PendleAdapter impl = new PendleAdapter(address(usdc), address(pendleRouter));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(PendleAdapter.initialize, (owner, vault))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(PendleAdapter.initialize, (owner, vault)));
         adapter = PendleAdapter(address(proxy));
         adapter.setApprovedMarket(market, true);
     }
@@ -201,10 +198,7 @@ contract PendleAdapterTest is Test {
 
     function test_setApprovedMarket_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         adapter.setApprovedMarket(address(0xCC), true);
     }
 
@@ -222,11 +216,7 @@ contract PendleAdapterTest is Test {
         usdc.mint(address(adapter), 100e6);
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         adapter.rescueToken(address(usdc), user, 100e6);
     }
-
 }

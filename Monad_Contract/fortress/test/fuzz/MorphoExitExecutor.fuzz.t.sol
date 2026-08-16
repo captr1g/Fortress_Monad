@@ -34,10 +34,7 @@ contract MorphoExitExecutorFuzzTest is Test {
         oracle = new MockOracle(ORACLE_PRICE_1TO1);
 
         MorphoExitExecutor impl = new MorphoExitExecutor(address(morpho));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(MorphoExitExecutor.initialize, (owner))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(MorphoExitExecutor.initialize, (owner)));
         exit = MorphoExitExecutor(address(proxy));
         exit.setApprovedDex(address(dex), true);
         exit.setApprovedSwapSelector(MockDex.swapExact.selector, true);
@@ -69,7 +66,11 @@ contract MorphoExitExecutorFuzzTest is Test {
         vm.stopPrank();
     }
 
-    function _swapCalldata(uint256 amountIn, uint256 amountOut, address recipient) internal view returns (bytes memory) {
+    function _swapCalldata(uint256 amountIn, uint256 amountOut, address recipient)
+        internal
+        view
+        returns (bytes memory)
+    {
         return abi.encodeCall(MockDex.swapExact, (address(collat), amountIn, address(usdc), amountOut, recipient));
     }
 
@@ -97,7 +98,7 @@ contract MorphoExitExecutorFuzzTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 0, "debt not cleared");
     }
 
@@ -126,7 +127,7 @@ contract MorphoExitExecutorFuzzTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, , uint128 collateral) = morpho.positionFor(_market(), user);
+        (,, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(collateral, 0, "collateral not cleared from morpho");
     }
 
@@ -156,7 +157,7 @@ contract MorphoExitExecutorFuzzTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, uint128 postBorrow, ) = morpho.positionFor(_market(), user);
+        (, uint128 postBorrow,) = morpho.positionFor(_market(), user);
         assertLt(postBorrow, debtAmt, "debt did not decrease");
     }
 

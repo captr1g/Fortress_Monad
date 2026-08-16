@@ -16,8 +16,7 @@ contract FortVaultLiFiForkTest is Test {
         vm.createSelectFork(vm.envString("BASE_RPC_URL"));
         LiFiAdapter adapterImpl = new LiFiAdapter(USDC, LIFI_DIAMOND);
         ERC1967Proxy adapterProxy = new ERC1967Proxy(
-            address(adapterImpl),
-            abi.encodeCall(LiFiAdapter.initialize, (address(this), address(this)))
+            address(adapterImpl), abi.encodeCall(LiFiAdapter.initialize, (address(this), address(this)))
         );
         adapter = LiFiAdapter(address(adapterProxy));
     }

@@ -57,8 +57,7 @@ contract MorphoExitExecutor is
     /// @dev Transient-storage slot (EIP-1153) holding a keccak256 commitment to the in-flight
     ///      flash payload. Written before flashLoan, verified and cleared inside the callback.
     ///       auto-cleared at tx end so it cannot leak across txs.
-    uint256 private constant _FLASH_COMMITMENT_SLOT =
-        0x464f52545f455849545f464c415348; // FORT_EXIT_FLASH
+    uint256 private constant _FLASH_COMMITMENT_SLOT = 0x464f52545f455849545f464c415348; // FORT_EXIT_FLASH
 
     struct ExitParams {
         IMorphoBlue.MarketParams market;
@@ -101,11 +100,7 @@ contract MorphoExitExecutor is
     error InsufficientRepayment(uint256 have, uint256 need);
 
     event ExitInitiated(
-        address indexed user,
-        bytes32 indexed marketId,
-        ExitMode mode,
-        uint256 flashAssets,
-        uint256 withdrawAssets
+        address indexed user, bytes32 indexed marketId, ExitMode mode, uint256 flashAssets, uint256 withdrawAssets
     );
 
     event PositionExited(
@@ -151,19 +146,14 @@ contract MorphoExitExecutor is
     /// @notice Unwind the caller's Morpho position in a single tx via a flash loan.
     /// @dev FULL_* modes read debt and collateral on-chain; `repayAssets`/`withdrawAssets`
     ///      are ignored. DELEVERAGE uses them as supplied, validated against the live position.
-    function exitPosition(
-        ExitParams calldata p
-    ) external whenNotPaused nonReentrant {
+    function exitPosition(ExitParams calldata p) external whenNotPaused nonReentrant {
         if (block.timestamp > p.deadline) revert DeadlineExpired();
         if (p.minLoanOut == 0) revert ZeroMinLoanOut();
         if (!isApprovedDex[p.dex]) revert UnauthorizedDex(p.dex);
 
         bytes32 id = keccak256(abi.encode(p.market));
         morpho.accrueInterest(p.market);
-        (, uint128 borrowShares, uint128 collateral) = morpho.position(
-            id,
-            msg.sender
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.position(id, msg.sender);
         if (borrowShares == 0) revert NoDebt();
         if (collateral == 0) revert NoCollateral();
 
@@ -172,10 +162,12 @@ contract MorphoExitExecutor is
         uint256 flashAssets;
         uint256 withdrawAssets;
         if (p.mode == ExitMode.DELEVERAGE) {
-            if (p.repayAssets > currentDebt)
+            if (p.repayAssets > currentDebt) {
                 revert RepayExceedsDebt(p.repayAssets, currentDebt);
-            if (p.withdrawAssets > collateral)
+            }
+            if (p.withdrawAssets > collateral) {
                 revert WithdrawExceedsCollateral(p.withdrawAssets, collateral);
+            }
             flashAssets = p.repayAssets;
             withdrawAssets = p.withdrawAssets;
         } else {
@@ -184,11 +176,9 @@ contract MorphoExitExecutor is
         }
 
         // Swap input must not exceed what we will actually withdraw this tx.
-        if (p.swapCollateralIn > withdrawAssets)
-            revert SwapInputExceedsWithdrawn(
-                p.swapCollateralIn,
-                withdrawAssets
-            );
+        if (p.swapCollateralIn > withdrawAssets) {
+            revert SwapInputExceedsWithdrawn(p.swapCollateralIn, withdrawAssets);
+        }
 
         FlashData memory fd = FlashData({
             user: msg.sender,
@@ -213,10 +203,7 @@ contract MorphoExitExecutor is
     }
 
     /// @inheritdoc IMorphoFlashLoanCallback
-    function onMorphoFlashLoan(
-        uint256 assets,
-        bytes calldata data
-    ) external override {
+    function onMorphoFlashLoan(uint256 assets, bytes calldata data) external override {
         if (msg.sender != address(morpho)) revert OnlyMorpho();
 
         bytes32 commitment = _getFlashCommitment();
@@ -232,43 +219,25 @@ contract MorphoExitExecutor is
         uint256 debtRepaid;
         if (fd.mode == ExitMode.DELEVERAGE) {
             IERC20(loanToken).forceApprove(address(morpho), assets);
-            (debtRepaid, ) = morpho.repay(fd.market, assets, 0, fd.user, "");
+            (debtRepaid,) = morpho.repay(fd.market, assets, 0, fd.user, "");
             IERC20(loanToken).forceApprove(address(morpho), 0);
         } else {
-            (, uint128 borrowShares, ) = morpho.position(id, fd.user);
+            (, uint128 borrowShares,) = morpho.position(id, fd.user);
             IERC20(loanToken).forceApprove(address(morpho), assets);
-            (debtRepaid, ) = morpho.repay(
-                fd.market,
-                0,
-                borrowShares,
-                fd.user,
-                ""
-            );
+            (debtRepaid,) = morpho.repay(fd.market, 0, borrowShares, fd.user, "");
             IERC20(loanToken).forceApprove(address(morpho), 0);
         }
 
-        morpho.withdrawCollateral(
-            fd.market,
-            fd.withdrawAssets,
-            fd.user,
-            address(this)
-        );
+        morpho.withdrawCollateral(fd.market, fd.withdrawAssets, fd.user, address(this));
 
-        uint256 swapIn = fd.swapCollateralIn == 0
-            ? IERC20(collateralToken).balanceOf(address(this))
-            : fd.swapCollateralIn;
-        _swap(
-            collateralToken,
-            loanToken,
-            swapIn,
-            fd.minLoanOut,
-            fd.dex,
-            fd.swapCalldata
-        );
+        uint256 swapIn =
+            fd.swapCollateralIn == 0 ? IERC20(collateralToken).balanceOf(address(this)) : fd.swapCollateralIn;
+        _swap(collateralToken, loanToken, swapIn, fd.minLoanOut, fd.dex, fd.swapCalldata);
 
         uint256 loanBalance = IERC20(loanToken).balanceOf(address(this));
-        if (loanBalance < assets)
+        if (loanBalance < assets) {
             revert InsufficientRepayment(loanBalance, assets);
+        }
 
         // Morpho pulls `assets` back via transferFrom after this returns.
         IERC20(loanToken).forceApprove(address(morpho), assets);
@@ -276,21 +245,12 @@ contract MorphoExitExecutor is
         uint256 loanToUser = loanBalance - assets;
         if (loanToUser > 0) IERC20(loanToken).safeTransfer(fd.user, loanToUser);
 
-        uint256 collateralLeft = IERC20(collateralToken).balanceOf(
-            address(this)
-        );
-        if (collateralLeft > 0)
+        uint256 collateralLeft = IERC20(collateralToken).balanceOf(address(this));
+        if (collateralLeft > 0) {
             IERC20(collateralToken).safeTransfer(fd.user, collateralLeft);
+        }
 
-        emit PositionExited(
-            fd.user,
-            id,
-            fd.mode,
-            debtRepaid,
-            fd.withdrawAssets,
-            loanToUser,
-            collateralLeft
-        );
+        emit PositionExited(fd.user, id, fd.mode, debtRepaid, fd.withdrawAssets, loanToUser, collateralLeft);
     }
 
     function _swap(
@@ -309,30 +269,24 @@ contract MorphoExitExecutor is
         uint256 balBefore = IERC20(tokenOut).balanceOf(address(this));
         IERC20(tokenIn).forceApprove(dex, amountIn);
 
-        (bool success, ) = dex.call(swapCalldata);
+        (bool success,) = dex.call(swapCalldata);
         if (!success) revert SwapFailed();
 
         IERC20(tokenIn).forceApprove(dex, 0);
 
-        uint256 received = IERC20(tokenOut).balanceOf(address(this)) -
-            balBefore;
+        uint256 received = IERC20(tokenOut).balanceOf(address(this)) - balBefore;
         if (received < minOut) revert SlippageExceeded(received, minOut);
     }
 
-    function _currentDebtAssets(
-        bytes32 id,
-        uint128 borrowShares
-    ) internal view returns (uint256) {
+    function _currentDebtAssets(bytes32 id, uint128 borrowShares) internal view returns (uint256) {
         if (borrowShares == 0) return 0;
-        (, , uint128 totalBorrowAssets, uint128 totalBorrowShares, , ) = morpho
-            .market(id);
-        return
-            Math.mulDiv(
-                uint256(borrowShares),
-                uint256(totalBorrowAssets) + VIRTUAL_ASSETS,
-                uint256(totalBorrowShares) + VIRTUAL_SHARES,
-                Math.Rounding.Ceil
-            );
+        (,, uint128 totalBorrowAssets, uint128 totalBorrowShares,,) = morpho.market(id);
+        return Math.mulDiv(
+            uint256(borrowShares),
+            uint256(totalBorrowAssets) + VIRTUAL_ASSETS,
+            uint256(totalBorrowShares) + VIRTUAL_SHARES,
+            Math.Rounding.Ceil
+        );
     }
 
     function _setFlashCommitment(bytes32 value) internal {
@@ -347,11 +301,7 @@ contract MorphoExitExecutor is
         }
     }
 
-    function rescueToken(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 

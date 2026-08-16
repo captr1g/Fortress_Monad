@@ -57,18 +57,10 @@ contract PendleStrategyAdapter is
     error InvalidSubAction(uint8 subAction);
 
     event PendleSwapExecuted(
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut
+        address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 amountOut, uint256 minAmountOut
     );
 
-    event LpWrapped(
-        address indexed lpToken,
-        address indexed wrapper,
-        uint256 amount
-    );
+    event LpWrapped(address indexed lpToken, address indexed wrapper, uint256 amount);
 
     modifier onlyExecutor() {
         if (msg.sender != executor) revert OnlyExecutor();
@@ -95,18 +87,12 @@ contract PendleStrategyAdapter is
         executor = _executor;
     }
 
-    function setApprovedWrapper(
-        address wrapper,
-        bool approved
-    ) external onlyOwner {
+    function setApprovedWrapper(address wrapper, bool approved) external onlyOwner {
         if (wrapper == address(0)) revert ZeroAddress();
         isApprovedWrapper[wrapper] = approved;
     }
 
-    function setApprovedRouterSelector(
-        bytes4 selector,
-        bool approved
-    ) external onlyOwner {
+    function setApprovedRouterSelector(bytes4 selector, bool approved) external onlyOwner {
         isApprovedRouterSelector[selector] = approved;
     }
 
@@ -126,13 +112,7 @@ contract PendleStrategyAdapter is
     ///
     ///   Sub-action 1 (Wrap LP → wrapped LP):
     ///     abi.encode(uint8(1), address wrapper, address wrappedToken)
-    function execute(
-        ActionType action,
-        address token,
-        uint256 amount,
-        address /* beneficiary */,
-        bytes calldata data
-    )
+    function execute(ActionType action, address token, uint256 amount, address, /* beneficiary */ bytes calldata data)
         external
         onlyExecutor
         whenNotPaused
@@ -154,18 +134,12 @@ contract PendleStrategyAdapter is
 
     // ──────────────────────────── Sub-action 0: Router relay ────────────────────────────
 
-    function _routerRelay(
-        address token,
-        uint256 amount,
-        bytes calldata data
-    ) internal returns (address tokenOut, uint256 amountOut) {
-        (
-            ,
-            address outToken,
-            uint256 minAmountOut,
-            bool useFullBalance,
-            bytes memory routerCalldata
-        ) = abi.decode(data, (uint8, address, uint256, bool, bytes));
+    function _routerRelay(address token, uint256 amount, bytes calldata data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
+        (, address outToken, uint256 minAmountOut, bool useFullBalance, bytes memory routerCalldata) =
+            abi.decode(data, (uint8, address, uint256, bool, bytes));
 
         if (outToken == address(0)) revert ZeroAddress();
         if (minAmountOut == 0) revert ZeroMinAmountOut();
@@ -187,19 +161,17 @@ contract PendleStrategyAdapter is
 
         uint256 balBefore = IERC20(outToken).balanceOf(address(this));
 
-        (bool success, bytes memory returnData) = pendleRouter.call(
-            routerCalldata
-        );
+        (bool success, bytes memory returnData) = pendleRouter.call(routerCalldata);
         if (!success) {
             assembly {
                 revert(add(returnData, 32), mload(returnData))
             }
         }
 
-        uint256 received = IERC20(outToken).balanceOf(address(this)) -
-            balBefore;
-        if (received < minAmountOut)
+        uint256 received = IERC20(outToken).balanceOf(address(this)) - balBefore;
+        if (received < minAmountOut) {
             revert SlippageExceeded(received, minAmountOut);
+        }
 
         IERC20(token).forceApprove(pendleRouter, 0);
 
@@ -211,31 +183,22 @@ contract PendleStrategyAdapter is
             IERC20(token).safeTransfer(executor, residualInput);
         }
 
-        emit PendleSwapExecuted(
-            token,
-            outToken,
-            amountIn,
-            received,
-            minAmountOut
-        );
+        emit PendleSwapExecuted(token, outToken, amountIn, received, minAmountOut);
 
         return (outToken, received);
     }
 
     // ──────────────────────────── Sub-action 1: Wrap LP ────────────────────────────
 
-    function _wrapLp(
-        address token,
-        uint256 /* amount */,
-        bytes calldata data
-    ) internal returns (address tokenOut, uint256 amountOut) {
-        (, address wrapper, address wrappedToken) = abi.decode(
-            data,
-            (uint8, address, address)
-        );
+    function _wrapLp(address token, uint256, /* amount */ bytes calldata data)
+        internal
+        returns (address tokenOut, uint256 amountOut)
+    {
+        (, address wrapper, address wrappedToken) = abi.decode(data, (uint8, address, address));
 
-        if (wrapper == address(0) || wrappedToken == address(0))
+        if (wrapper == address(0) || wrappedToken == address(0)) {
             revert ZeroAddress();
+        }
         if (!isApprovedWrapper[wrapper]) revert UnauthorizedWrapper(wrapper);
 
         uint256 amountIn = IERC20(token).balanceOf(address(this));
@@ -249,8 +212,7 @@ contract PendleStrategyAdapter is
         // Wrap 1:1 — receiver is this adapter so we can forward to executor
         IPendleLPWrapper(wrapper).wrap(address(this), amountIn);
 
-        uint256 received = IERC20(wrappedToken).balanceOf(address(this)) -
-            balBefore;
+        uint256 received = IERC20(wrappedToken).balanceOf(address(this)) - balBefore;
 
         // Verify 1:1 mint — a compliant wrapper must mint exactly amountIn
         if (received != amountIn) revert SlippageExceeded(received, amountIn);
@@ -267,11 +229,7 @@ contract PendleStrategyAdapter is
     }
 
     /// @notice Rescue tokens accidentally sent to adapter
-    function rescueToken(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 

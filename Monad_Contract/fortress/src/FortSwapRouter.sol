@@ -16,12 +16,7 @@ import "./interfaces/ILiFi.sol";
 /// @title FortSwapRouter — swap any token to USDC via LiFi, then split-deposit across protocols
 /// @notice Extracted from FortVault to reduce contract size (EIP-170 compliance).
 ///         Users approve this contract for input tokens. USDC approvals for deposit() still target FortVault.
-contract FortSwapRouter is
-    Ownable2StepUpgradeable,
-    PausableUpgradeable,
-    UUPSUpgradeable,
-    ReentrancyGuardTransient
-{
+contract FortSwapRouter is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
 
     // ──────────── Immutables ────────────
@@ -38,14 +33,16 @@ contract FortSwapRouter is
 
     struct SwapDepositEntry {
         bytes32 protocolKey;
-        uint16  bps;           // basis points, sum must = 10000
-        uint256 minSharesOut;  // slippage protection (ERC4626 only; 0 = no check)
-        bytes   data;          // protocol-specific calldata
+        uint16 bps; // basis points, sum must = 10000
+        uint256 minSharesOut; // slippage protection (ERC4626 only; 0 = no check)
+        bytes data; // protocol-specific calldata
     }
 
     // ──────────── Events ────────────
 
-    event SwapAndDeposited(address indexed user, address indexed inputToken, uint256 inputAmount, uint256 usdcReceived, uint256 entryCount);
+    event SwapAndDeposited(
+        address indexed user, address indexed inputToken, uint256 inputAmount, uint256 usdcReceived, uint256 entryCount
+    );
     event DexApprovalUpdated(address indexed dex, bool approved);
     event VaultUpdated(address indexed oldVault, address indexed newVault);
 
@@ -95,8 +92,13 @@ contract FortSwapRouter is
         emit VaultUpdated(old, _vault);
     }
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     // ══════════════════════════════════════════════════════════════
     //                    USER: SWAP AND DEPOSIT

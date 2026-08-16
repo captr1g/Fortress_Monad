@@ -43,21 +43,12 @@ contract Withdraw is Script {
         uint256 idx;
 
         if (morphoShares > 0) {
-            entries[idx++] = FortVault.WithdrawEntry({
-                protocolKey: MORPHO_KEY,
-                shares: morphoShares,
-                minUsdcOut: 0,
-                data: ""
-            });
+            entries[idx++] =
+                FortVault.WithdrawEntry({protocolKey: MORPHO_KEY, shares: morphoShares, minUsdcOut: 0, data: ""});
         }
 
         if (aaveShares > 0) {
-            entries[idx] = FortVault.WithdrawEntry({
-                protocolKey: AAVE_KEY,
-                shares: aaveShares,
-                minUsdcOut: 0,
-                data: ""
-            });
+            entries[idx] = FortVault.WithdrawEntry({protocolKey: AAVE_KEY, shares: aaveShares, minUsdcOut: 0, data: ""});
         }
 
         FortVault(vaultProxy).withdraw(entries);

@@ -44,10 +44,8 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         morpho = new MockMorphoBlue();
 
         MorphoStrategyAdapter impl = new MorphoStrategyAdapter(address(morpho));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, owner)));
         adapter = MorphoStrategyAdapter(address(proxy));
 
         // Fund Morpho with a large USDC reserve so borrows can be served.
@@ -63,74 +61,49 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     /// @dev Oracle price for a collateral worth `usdPrice` dollars, where the
     ///      collateral has `collatDec` decimals and the loan token (USDC) has 6.
     ///      Morpho scale: price = usdPrice * 1e36 * 10^loanDec / 10^collatDec.
-    function _priceFor(
-        uint256 usdPrice,
-        uint8 collatDec
-    ) internal pure returns (uint256) {
+    function _priceFor(uint256 usdPrice, uint8 collatDec) internal pure returns (uint256) {
         return (usdPrice * ORACLE_PRICE_SCALE * 1e6) / (10 ** collatDec);
     }
 
-    function _market(
-        address collateral,
-        address oracle
-    ) internal view returns (IMorphoBlue.MarketParams memory) {
-        return
-            IMorphoBlue.MarketParams({
-                loanToken: address(usdc),
-                collateralToken: collateral,
-                oracle: oracle,
-                irm: address(0),
-                lltv: LLTV_915
-            });
+    function _market(address collateral, address oracle) internal view returns (IMorphoBlue.MarketParams memory) {
+        return IMorphoBlue.MarketParams({
+            loanToken: address(usdc),
+            collateralToken: collateral,
+            oracle: oracle,
+            irm: address(0),
+            lltv: LLTV_915
+        });
     }
 
-    function _supply(
-        IMorphoBlue.MarketParams memory m,
-        uint256 amount
-    ) internal {
+    function _supply(IMorphoBlue.MarketParams memory m, uint256 amount) internal {
         MockERC20(m.collateralToken).mint(address(adapter), amount);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            m.collateralToken,
-            amount,
-            user,
-            abi.encode(m)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, m.collateralToken, amount, user, abi.encode(m));
     }
 
-    function _borrow(
-        IMorphoBlue.MarketParams memory m,
-        uint256 targetLtvWad,
-        uint256 maxBorrow,
-        uint256 minBorrow
-    ) internal returns (uint256 amountOut) {
+    function _borrow(IMorphoBlue.MarketParams memory m, uint256 targetLtvWad, uint256 maxBorrow, uint256 minBorrow)
+        internal
+        returns (uint256 amountOut)
+    {
         vm.prank(executorAddr);
         (, amountOut) = adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            abi.encode(m, targetLtvWad, maxBorrow, minBorrow)
+            IStrategyAdapter.ActionType.BORROW, address(0), 0, user, abi.encode(m, targetLtvWad, maxBorrow, minBorrow)
         );
     }
 
     /// @dev Expected borrow = collateral * price / 1e36 * ltv / 1e18 - currentDebt.
-    function _expectedBorrow(
-        uint256 collateral,
-        uint256 price,
-        uint256 ltvWad,
-        uint256 currentDebt
-    ) internal pure returns (uint256) {
+    function _expectedBorrow(uint256 collateral, uint256 price, uint256 ltvWad, uint256 currentDebt)
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 collateralValue = (collateral * price) / ORACLE_PRICE_SCALE;
         uint256 targetDebt = (collateralValue * ltvWad) / WAD;
         return targetDebt - currentDebt;
     }
 
-    function _debtOf(
-        IMorphoBlue.MarketParams memory m
-    ) internal view returns (uint256) {
-        (, uint128 borrowShares, ) = morpho.positionFor(m, user);
+    function _debtOf(IMorphoBlue.MarketParams memory m) internal view returns (uint256) {
+        (, uint128 borrowShares,) = morpho.positionFor(m, user);
         return uint256(borrowShares); // mock tracks shares 1:1 with assets
     }
 
@@ -142,10 +115,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         uint256 price = _priceFor(3000, 18); // $3000 per WETH
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18); // 1 WETH = $3000
         uint256 expected = _expectedBorrow(1e18, price, 0.8e18, 0); // 2400 USDC
@@ -159,10 +129,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 cbbtc = new MockERC20("Coinbase BTC", "cbBTC", 8);
         uint256 price = _priceFor(60000, 8); // $60,000 per cbBTC
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(cbbtc),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(cbbtc), address(oracle));
 
         _supply(m, 1e8); // 1 cbBTC = $60,000
         uint256 expected = _expectedBorrow(1e8, price, 0.5e18, 0); // 30000 USDC
@@ -177,10 +144,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 usdcCollat = new MockERC20("USD Coin C", "USDCc", 6);
         uint256 price = _priceFor(1, 6); // $1
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(usdcCollat),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(usdcCollat), address(oracle));
 
         _supply(m, 1000e6); // $1000
         uint256 got = _borrow(m, 0.75e18, type(uint256).max, 0);
@@ -195,10 +159,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         uint256 price = _priceFor(3000, 18);
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18); // 1 WETH supplied at $3000
 
@@ -214,10 +175,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_oraclePriceHalves_betweenSupplyAndBorrow() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         oracle.setPrice(_priceFor(1500, 18)); // halves to $1500
@@ -234,10 +192,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         uint256 price = _priceFor(3000, 18);
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         // Ideal collateral would be 1 WETH, but a 0.1% swap loss lands 0.999 WETH.
         uint256 landed = (1e18 * 9990) / 10000;
@@ -247,22 +202,14 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         // Real LTV = debt / collateralValue should equal target exactly.
         uint256 collateralValue = (landed * price) / ORACLE_PRICE_SCALE;
         uint256 realLtv = (got * WAD) / collateralValue;
-        assertApproxEqAbs(
-            realLtv,
-            0.8e18,
-            1e6,
-            "LTV stays at 80% despite 0.1% loss"
-        );
+        assertApproxEqAbs(realLtv, 0.8e18, 1e6, "LTV stays at 80% despite 0.1% loss");
     }
 
     function test_swapLoses_1pct_ltvStaysAtTarget() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         uint256 price = _priceFor(3000, 18);
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         uint256 landed = (1e18 * 9900) / 10000; // 1% swap loss
         _supply(m, landed);
@@ -270,12 +217,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         uint256 got = _borrow(m, 0.8e18, type(uint256).max, 0);
         uint256 collateralValue = (landed * price) / ORACLE_PRICE_SCALE;
         uint256 realLtv = (got * WAD) / collateralValue;
-        assertApproxEqAbs(
-            realLtv,
-            0.8e18,
-            1e6,
-            "LTV stays at 80% despite 1% loss"
-        );
+        assertApproxEqAbs(realLtv, 0.8e18, 1e6, "LTV stays at 80% despite 1% loss");
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -286,10 +228,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         uint256 price = _priceFor(3000, 18); // $3000
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         uint256 ltv = 0.5e18;
 
@@ -312,20 +251,13 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         uint256 totalDebt = _debtOf(m);
         assertEq(totalDebt, 2625e6, "total debt after 3 loops");
         uint256 collateralValue = (1.75e18 * price) / ORACLE_PRICE_SCALE;
-        assertEq(
-            (totalDebt * WAD) / collateralValue,
-            ltv,
-            "final LTV == target"
-        );
+        assertEq((totalDebt * WAD) / collateralValue, ltv, "final LTV == target");
     }
 
     function test_multiLoop_tailIterationHitsDustFloor() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         _borrow(m, 0.5e18, type(uint256).max, 0); // debt 1500
@@ -350,10 +282,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrowExactlyEqualsMaxBorrow_succeeds() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         // Borrow will be exactly 2400 USDC; set ceiling to exactly that.
@@ -364,20 +293,11 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrowOneWeiOverMaxBorrow_reverts() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoStrategyAdapter.BorrowExceedsCeiling.selector,
-                2400e6,
-                2400e6 - 1
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoStrategyAdapter.BorrowExceedsCeiling.selector, 2400e6, 2400e6 - 1));
         adapter.execute(
             IStrategyAdapter.ActionType.BORROW,
             address(0),
@@ -390,10 +310,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrowExactlyEqualsMinBorrow_succeeds() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         // Borrow 2400 USDC; minBorrow set exactly to 2400 → not below floor.
@@ -404,17 +321,18 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrowOneWeiBelowMinBorrow_reverts() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(MorphoStrategyAdapter.BorrowBelowMinimum.selector, 2400e6, 2400e6 + 1)
+        vm.expectRevert(abi.encodeWithSelector(MorphoStrategyAdapter.BorrowBelowMinimum.selector, 2400e6, 2400e6 + 1));
+        adapter.execute(
+            IStrategyAdapter.ActionType.BORROW,
+            address(0),
+            0,
+            user,
+            abi.encode(m, 0.8e18, type(uint256).max, 2400e6 + 1)
         );
-        adapter.execute(IStrategyAdapter.ActionType.BORROW, address(0), 0, user, abi.encode(m, 0.8e18, type(uint256).max, 2400e6 + 1));
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -424,10 +342,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrow_repayPart_borrowAgain_refillsGap() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18); // $3000 collateral
         _borrow(m, 0.8e18, type(uint256).max, 0); // debt 2400
@@ -436,13 +351,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         // Repay 400 USDC (executor sends loan token to the adapter first).
         usdc.mint(address(adapter), 400e6);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc),
-            400e6,
-            user,
-            abi.encode(m)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), 400e6, user, abi.encode(m));
         assertEq(_debtOf(m), 2000e6, "debt after partial repay");
 
         // Borrow back to 80%: gap is exactly the 400 we repaid.
@@ -454,23 +363,14 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrow_fullRepay_borrowAgain_freshBorrow() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         _supply(m, 1e18);
         _borrow(m, 0.8e18, type(uint256).max, 0); // 2400
 
         usdc.mint(address(adapter), 2400e6);
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.REPAY,
-            address(usdc),
-            2400e6,
-            user,
-            abi.encode(m)
-        );
+        adapter.execute(IStrategyAdapter.ActionType.REPAY, address(usdc), 2400e6, user, abi.encode(m));
         assertEq(_debtOf(m), 0, "debt fully repaid");
 
         uint256 got = _borrow(m, 0.8e18, type(uint256).max, 0);
@@ -484,17 +384,12 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_pause_blocksBorrow_unpauseRestores() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
         _supply(m, 1e18);
 
         adapter.pause();
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()")))
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()"))));
         adapter.execute(
             IStrategyAdapter.ActionType.BORROW,
             address(0),
@@ -510,12 +405,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
 
     function test_pause_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                user
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         adapter.pause();
     }
 
@@ -526,10 +416,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     function test_borrow_nonExecutor_reverts() public {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         MockOracle oracle = new MockOracle(_priceFor(3000, 18));
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
 
         vm.prank(user);
         vm.expectRevert(MorphoStrategyAdapter.OnlyExecutor.selector);
@@ -550,10 +437,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 weth = new MockERC20("Wrapped Ether", "WETH", 18);
         uint256 price = _priceFor(3000, 18);
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(weth),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(weth), address(oracle));
         bytes32 id = keccak256(abi.encode(m));
 
         _supply(m, 1e18);
@@ -591,8 +475,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         ReentrantExecutor attacker = new ReentrantExecutor();
         MorphoStrategyAdapter aImpl = new MorphoStrategyAdapter(address(morpho));
         ERC1967Proxy aProxy = new ERC1967Proxy(
-            address(aImpl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (address(attacker), owner))
+            address(aImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (address(attacker), owner))
         );
         MorphoStrategyAdapter a = MorphoStrategyAdapter(address(aProxy));
         attacker.configure(address(a));
@@ -618,11 +501,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         // Borrow: forwarding the loan token to the executor triggers the hook,
         // which re-enters execute(); nonReentrant must make the outer call revert.
         attacker.expectReentryBlocked();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                bytes4(keccak256("ReentrancyGuardReentrantCall()"))
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("ReentrancyGuardReentrantCall()"))));
         attacker.doBorrow(m, 0.5e18, type(uint256).max, 0, user);
     }
 
@@ -630,11 +509,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
     //  K. Fuzz — resulting LTV never exceeds target; borrow never exceeds ceiling
     // ══════════════════════════════════════════════════════════════════════
 
-    function testFuzz_borrowNeverExceedsTargetLtv(
-        uint256 collateral,
-        uint256 usdPrice,
-        uint256 ltvPct
-    ) public {
+    function testFuzz_borrowNeverExceedsTargetLtv(uint256 collateral, uint256 usdPrice, uint256 ltvPct) public {
         collateral = bound(collateral, 1e15, 1_000e18); // 0.001 .. 1000 units (18dp)
         usdPrice = bound(usdPrice, 1, 100_000); // $1 .. $100k
         ltvPct = bound(ltvPct, 1, 90); // 1% .. 90% (< 91.5% LLTV)
@@ -642,10 +517,7 @@ contract MorphoStrategyAdapterScenariosTest is Test {
         MockERC20 collat = new MockERC20("C", "C", 18);
         uint256 price = _priceFor(usdPrice, 18);
         MockOracle oracle = new MockOracle(price);
-        IMorphoBlue.MarketParams memory m = _market(
-            address(collat),
-            address(oracle)
-        );
+        IMorphoBlue.MarketParams memory m = _market(address(collat), address(oracle));
 
         uint256 ltvWad = (ltvPct * WAD) / 100;
         uint256 collateralValue = (collateral * price) / ORACLE_PRICE_SCALE;
@@ -678,18 +550,8 @@ contract ReentrantExecutor is IReentryHook {
         expectBlocked = true;
     }
 
-    function doSupply(
-        IMorphoBlue.MarketParams calldata m,
-        uint256 amount,
-        address user
-    ) external {
-        adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            m.collateralToken,
-            amount,
-            user,
-            abi.encode(m)
-        );
+    function doSupply(IMorphoBlue.MarketParams calldata m, uint256 amount, address user) external {
+        adapter.execute(IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, m.collateralToken, amount, user, abi.encode(m));
     }
 
     function doBorrow(
@@ -701,11 +563,7 @@ contract ReentrantExecutor is IReentryHook {
     ) external {
         pendingMarket = m;
         adapter.execute(
-            IStrategyAdapter.ActionType.BORROW,
-            address(0),
-            0,
-            user,
-            abi.encode(m, ltvWad, maxBorrow, minBorrow)
+            IStrategyAdapter.ActionType.BORROW, address(0), 0, user, abi.encode(m, ltvWad, maxBorrow, minBorrow)
         );
     }
 
@@ -719,12 +577,7 @@ contract ReentrantExecutor is IReentryHook {
             address(0),
             0,
             address(0xA1),
-            abi.encode(
-                pendingMarket,
-                uint256(0.5e18),
-                type(uint256).max,
-                uint256(0)
-            )
+            abi.encode(pendingMarket, uint256(0.5e18), type(uint256).max, uint256(0))
         );
     }
 }

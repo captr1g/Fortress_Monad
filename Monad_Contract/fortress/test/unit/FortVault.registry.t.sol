@@ -37,10 +37,7 @@ contract FortVaultRegistryTest is FortVaultTestBase {
     function test_registerProtocol_nonOwner_reverts() public {
         address nonOwner = address(0x1234);
         vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            nonOwner
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), nonOwner));
         vault.registerProtocol("Morpho", PROTOCOL_ADDR, true);
     }
 

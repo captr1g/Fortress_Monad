@@ -29,10 +29,7 @@ contract FortStrategyExecutorUnitTest is Test {
         yoUSD = new MockERC20("Yield USD", "yoUSD", 18);
 
         FortStrategyExecutor impl = new FortStrategyExecutor();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(FortStrategyExecutor.initialize, ())
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(FortStrategyExecutor.initialize, ()));
         executor = FortStrategyExecutor(address(proxy));
 
         mockAdapter = new MockStrategyAdapter();
@@ -48,11 +45,7 @@ contract FortStrategyExecutorUnitTest is Test {
     }
 
     function _ownableErr(address who) internal pure returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                who
-            );
+        return abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), who);
     }
 
     // ──────────────────────────── initialize ────────────────────────────
@@ -62,9 +55,7 @@ contract FortStrategyExecutorUnitTest is Test {
     }
 
     function test_initialize_twice_reverts() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(bytes4(keccak256("InvalidInitialization()")))
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("InvalidInitialization()"))));
         executor.initialize();
     }
 
@@ -80,12 +71,7 @@ contract FortStrategyExecutorUnitTest is Test {
     }
 
     function test_registerAdapter_duplicate_reverts() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IFortStrategyExecutor.AdapterAlreadyRegistered.selector,
-                uint8(0)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IFortStrategyExecutor.AdapterAlreadyRegistered.selector, uint8(0)));
         executor.registerAdapter(0, address(mockAdapter));
     }
 
@@ -108,12 +94,7 @@ contract FortStrategyExecutorUnitTest is Test {
     }
 
     function test_removeAdapter_notFound_reverts() public {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IFortStrategyExecutor.AdapterNotRegistered.selector,
-                uint8(99)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IFortStrategyExecutor.AdapterNotRegistered.selector, uint8(99)));
         executor.removeAdapter(99);
     }
 
@@ -143,26 +124,24 @@ contract FortStrategyExecutorUnitTest is Test {
 
     // ──────────────────────────── executeStrategy guards ────────────────────────────
 
-    function _consumeStep(
-        uint8 id,
-        address tokenIn,
-        uint16 bps
-    ) internal pure returns (IFortStrategyExecutor.Step memory) {
-        return
-            IFortStrategyExecutor.Step({
-                adapterId: id,
-                action: IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-                tokenIn: tokenIn,
-                bps: bps,
-                amountFixed: 0,
-                data: abi.encode(address(0), uint256(0), uint256(0))
-            });
+    function _consumeStep(uint8 id, address tokenIn, uint16 bps)
+        internal
+        pure
+        returns (IFortStrategyExecutor.Step memory)
+    {
+        return IFortStrategyExecutor.Step({
+            adapterId: id,
+            action: IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
+            tokenIn: tokenIn,
+            bps: bps,
+            amountFixed: 0,
+            data: abi.encode(address(0), uint256(0), uint256(0))
+        });
     }
 
     function test_executeStrategy_deadlineExpired_reverts() public {
         _fundAndApprove(user, 100e6);
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(0, address(usdc), 10000);
 
         vm.warp(1000);
@@ -172,8 +151,7 @@ contract FortStrategyExecutorUnitTest is Test {
     }
 
     function test_executeStrategy_zeroAmount_reverts() public {
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(0, address(usdc), 10000);
 
         vm.prank(user);
@@ -182,16 +160,14 @@ contract FortStrategyExecutorUnitTest is Test {
     }
 
     function test_executeStrategy_zeroSteps_reverts() public {
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](0);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](0);
         vm.prank(user);
         vm.expectRevert(IFortStrategyExecutor.ZeroSteps.selector);
         executor.executeStrategy(address(usdc), 100e6, steps, new address[](0), DEADLINE);
     }
 
     function test_executeStrategy_tooManySteps_reverts() public {
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](31);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](31);
         for (uint256 i; i < 31; i++) {
             steps[i] = _consumeStep(0, address(usdc), 10000);
         }
@@ -202,17 +178,11 @@ contract FortStrategyExecutorUnitTest is Test {
 
     function test_executeStrategy_unregisteredAdapter_reverts() public {
         _fundAndApprove(user, 100e6);
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(99, address(usdc), 10000);
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IFortStrategyExecutor.AdapterNotRegistered.selector,
-                uint8(99)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(IFortStrategyExecutor.AdapterNotRegistered.selector, uint8(99)));
         executor.executeStrategy(address(usdc), 100e6, steps, new address[](0), DEADLINE);
     }
 
@@ -222,14 +192,11 @@ contract FortStrategyExecutorUnitTest is Test {
         _fundAndApprove(user, 100e6);
         executor.pause();
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(0, address(usdc), 10000);
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()")))
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()"))));
         executor.executeStrategy(address(usdc), 100e6, steps, new address[](0), DEADLINE);
     }
 
@@ -238,8 +205,7 @@ contract FortStrategyExecutorUnitTest is Test {
         executor.pause();
         executor.unpause();
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(0, address(usdc), 10000);
 
         vm.prank(user);
@@ -292,8 +258,7 @@ contract FortStrategyExecutorUnitTest is Test {
         _fundAndApprove(user, inputAmount);
 
         // Step 0: swap-like — consume USDC, mint 250e18 yoUSD to executor.
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](2);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](2);
         steps[0] = IFortStrategyExecutor.Step({
             adapterId: 0,
             action: IStrategyAdapter.ActionType.SWAP,
@@ -331,8 +296,7 @@ contract FortStrategyExecutorUnitTest is Test {
         _fundAndApprove(user, inputAmount);
 
         // Only 60% of USDC routed to the adapter; 40% residual must sweep back.
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(0, address(usdc), 6000);
 
         vm.prank(user);
@@ -351,8 +315,7 @@ contract FortStrategyExecutorUnitTest is Test {
         _fundAndApprove(user, inputAmount);
 
         // Adapter mints only 100e18 but reports 200e18 as output.
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = IFortStrategyExecutor.Step({
             adapterId: 0,
             action: IStrategyAdapter.ActionType.SWAP,
@@ -364,11 +327,7 @@ contract FortStrategyExecutorUnitTest is Test {
 
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                IFortStrategyExecutor.InsufficientOutput.selector,
-                uint256(200e18),
-                uint256(100e18)
-            )
+            abi.encodeWithSelector(IFortStrategyExecutor.InsufficientOutput.selector, uint256(200e18), uint256(100e18))
         );
         executor.executeStrategy(address(usdc), inputAmount, steps, new address[](0), DEADLINE);
     }
@@ -379,8 +338,7 @@ contract FortStrategyExecutorUnitTest is Test {
         uint256 inputAmount = 100e6;
         _fundAndApprove(user, inputAmount);
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = IFortStrategyExecutor.Step({
             adapterId: 0,
             action: IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
@@ -402,8 +360,7 @@ contract FortStrategyExecutorUnitTest is Test {
         uint256 inputAmount = 100e6;
         _fundAndApprove(user, inputAmount);
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = _consumeStep(0, address(usdc), 10000);
 
         vm.prank(user);

@@ -6,7 +6,14 @@ pragma solidity ^0.8.20;
 ///         Deposits: USDC bridged via LiFi to destination chain + protocol.
 ///         Withdrawals: intent recorded on Base, keeper fulfills, user claims USDC.
 interface ICrossChainRouter {
-    enum RequestStatus { Pending, Completed, Failed, Refunded, Claimed, Cancelled }
+    enum RequestStatus {
+        Pending,
+        Completed,
+        Failed,
+        Refunded,
+        Claimed,
+        Cancelled
+    }
 
     struct DepositRequest {
         address user;
@@ -34,12 +41,9 @@ interface ICrossChainRouter {
     /// @param lifiData Raw calldata for LiFi Diamond (built by frontend via LiFi API)
     /// @param deadline Timestamp after which tx reverts
     /// @return requestId Unique identifier for tracking
-    function depositCrossChain(
-        uint256 usdcAmount,
-        uint256 destChainId,
-        bytes calldata lifiData,
-        uint256 deadline
-    ) external returns (bytes32 requestId);
+    function depositCrossChain(uint256 usdcAmount, uint256 destChainId, bytes calldata lifiData, uint256 deadline)
+        external
+        returns (bytes32 requestId);
 
     // ──── Cross-Chain Withdraw ────
 

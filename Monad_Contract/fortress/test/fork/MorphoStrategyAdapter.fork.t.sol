@@ -15,35 +15,17 @@ import "../../src/interfaces/IOracle.sol";
 ///         Morpho's own LLTV health revert. The adapter is exercised directly with
 ///         the test contract acting as the executor.
 interface IMorphoBlueExtended {
-    function idToMarketParams(
-        bytes32 id
-    )
+    function idToMarketParams(bytes32 id)
         external
         view
-        returns (
-            address loanToken,
-            address collateralToken,
-            address oracle,
-            address irm,
-            uint256 lltv
-        );
+        returns (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv);
 
-    function position(
-        bytes32 id,
-        address user
-    )
+    function position(bytes32 id, address user)
         external
         view
-        returns (
-            uint256 supplyShares,
-            uint128 borrowShares,
-            uint128 collateral
-        );
+        returns (uint256 supplyShares, uint128 borrowShares, uint128 collateral);
 
-    function setAuthorization(
-        address authorized,
-        bool newIsAuthorized
-    ) external;
+    function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
 contract MorphoStrategyAdapterForkTest is Test {
@@ -51,8 +33,7 @@ contract MorphoStrategyAdapterForkTest is Test {
     uint256 internal constant ORACLE_PRICE_SCALE = 1e36;
 
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
-    bytes32 constant MARKET_ID =
-        0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
+    bytes32 constant MARKET_ID = 0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
 
     MorphoStrategyAdapter internal adapter;
     IMorphoBlue.MarketParams internal market;
@@ -63,13 +44,8 @@ contract MorphoStrategyAdapterForkTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("BASE_RPC_URL"));
 
-        (
-            address loanToken,
-            address collateralToken,
-            address oracle,
-            address irm,
-            uint256 lltv
-        ) = IMorphoBlueExtended(MORPHO_BLUE).idToMarketParams(MARKET_ID);
+        (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
+            IMorphoBlueExtended(MORPHO_BLUE).idToMarketParams(MARKET_ID);
         market = IMorphoBlue.MarketParams({
             loanToken: loanToken,
             collateralToken: collateralToken,
@@ -81,36 +57,24 @@ contract MorphoStrategyAdapterForkTest is Test {
         // Executor == this test contract.
         MorphoStrategyAdapter adapterImpl = new MorphoStrategyAdapter(MORPHO_BLUE);
         ERC1967Proxy adapterProxy = new ERC1967Proxy(
-            address(adapterImpl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (address(this), address(this)))
+            address(adapterImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (address(this), address(this)))
         );
         adapter = MorphoStrategyAdapter(address(adapterProxy));
 
         // User authorizes the adapter to act on their Morpho position.
         vm.prank(user);
-        IMorphoBlueExtended(MORPHO_BLUE).setAuthorization(
-            address(adapter),
-            true
-        );
+        IMorphoBlueExtended(MORPHO_BLUE).setAuthorization(address(adapter), true);
     }
 
     /// @dev Supply `amount` of real collateral on behalf of `user` through the adapter.
     function _supply(uint256 amount) internal {
         deal(market.collateralToken, address(adapter), amount);
         adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            market.collateralToken,
-            amount,
-            user,
-            abi.encode(market)
+            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, market.collateralToken, amount, user, abi.encode(market)
         );
     }
 
-    function _borrow(
-        uint256 targetLtvWad,
-        uint256 maxBorrow,
-        uint256 minBorrow
-    ) internal returns (uint256 amountOut) {
+    function _borrow(uint256 targetLtvWad, uint256 maxBorrow, uint256 minBorrow) internal returns (uint256 amountOut) {
         (, amountOut) = adapter.execute(
             IStrategyAdapter.ActionType.BORROW,
             address(0),
@@ -129,7 +93,7 @@ contract MorphoStrategyAdapterForkTest is Test {
         _supply(collateral);
 
         uint256 price = IOracle(market.oracle).price();
-        uint256 targetLtv = 0.10e18; // conservative to stay within market liquidity
+        uint256 targetLtv = 0.1e18; // conservative to stay within market liquidity
 
         uint256 borrowed = _borrow(targetLtv, type(uint256).max, 0);
 
@@ -169,11 +133,9 @@ contract MorphoStrategyAdapterForkTest is Test {
 
         // Borrow to 10%: the adapter must read the (now larger) real debt via
         // share->asset conversion and only borrow the remaining gap.
-        uint256 second = _borrow(0.10e18, type(uint256).max, 0);
+        uint256 second = _borrow(0.1e18, type(uint256).max, 0);
 
-        (, uint128 borrowShares, uint128 collateral) = IMorphoBlueExtended(
-            MORPHO_BLUE
-        ).position(MARKET_ID, user);
+        (, uint128 borrowShares, uint128 collateral) = IMorphoBlueExtended(MORPHO_BLUE).position(MARKET_ID, user);
         assertGt(borrowShares, 0, "debt exists");
         assertGt(collateral, 0, "collateral exists");
         // Second borrow is the gap to 10%, strictly less than borrowing 10% fresh.
@@ -202,10 +164,7 @@ contract MorphoStrategyAdapterForkTest is Test {
         );
 
         // Position debt unchanged (still zero) — atomic revert held.
-        (, uint128 borrowShares, ) = IMorphoBlueExtended(MORPHO_BLUE).position(
-            MARKET_ID,
-            user
-        );
+        (, uint128 borrowShares,) = IMorphoBlueExtended(MORPHO_BLUE).position(MARKET_ID, user);
         assertEq(borrowShares, 0, "no debt created on revert");
     }
 

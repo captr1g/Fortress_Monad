@@ -18,8 +18,7 @@ contract DeployPendleAdapter is Script {
     uint8 constant PENDLE_ID = 2;
     address constant PENDLE_ROUTER = 0x888888888889758F76e7103c6CbF23ABbF58F946;
     // Pendle LP Wrapper Factory on Base — used to look up wrappers per market.
-    address constant LP_WRAPPER_FACTORY =
-        0xCa274A44a52241c1a8EFb9f84Bf492D8363929FC;
+    address constant LP_WRAPPER_FACTORY = 0xCa274A44a52241c1a8EFb9f84Bf492D8363929FC;
 
     function run() external {
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
@@ -38,8 +37,7 @@ contract DeployPendleAdapter is Script {
         // 2. Deploy new PendleStrategyAdapter (UUPS proxy)
         PendleStrategyAdapter pendleImpl = new PendleStrategyAdapter(PENDLE_ROUTER);
         ERC1967Proxy pendleProxy = new ERC1967Proxy(
-            address(pendleImpl),
-            abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, deployer))
+            address(pendleImpl), abi.encodeCall(PendleStrategyAdapter.initialize, (executorAddr, deployer))
         );
         PendleStrategyAdapter pendleAdapter = PendleStrategyAdapter(address(pendleProxy));
 
@@ -55,14 +53,9 @@ contract DeployPendleAdapter is Script {
         console.log("Pendle Router:", PENDLE_ROUTER);
         console.log("");
         console.log("=== Update .env with ===");
-        console.log(
-            "FORTRESS_PENDLE_ADAPTER=%s",
-            vm.toString(address(pendleAdapter))
-        );
+        console.log("FORTRESS_PENDLE_ADAPTER=%s", vm.toString(address(pendleAdapter)));
         console.log("");
         console.log("=== Post-deploy: approve LP wrappers ===");
-        console.log(
-            "Call pendleAdapter.setApprovedWrapper(<wrapperAddr>, true) for each market."
-        );
+        console.log("Call pendleAdapter.setApprovedWrapper(<wrapperAddr>, true) for each market.");
     }
 }

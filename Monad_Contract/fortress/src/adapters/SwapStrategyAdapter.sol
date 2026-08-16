@@ -111,13 +111,7 @@ contract SwapStrategyAdapter is
     ///     of `token` and uses that as the swap input, regardless of what `amount` the
     ///     executor sent or what number is frozen in the calldata. Used for post-borrow swaps
     ///     where the exact amount is decided on-chain and differs from any build-time estimate.
-    function execute(
-        ActionType action,
-        address token,
-        uint256 amount,
-        address /* beneficiary */,
-        bytes calldata data
-    )
+    function execute(ActionType action, address token, uint256 amount, address, /* beneficiary */ bytes calldata data)
         external
         onlyExecutor
         whenNotPaused
@@ -126,13 +120,8 @@ contract SwapStrategyAdapter is
     {
         if (action != ActionType.SWAP) revert UnsupportedAction();
 
-        (
-            address dex,
-            address outToken,
-            uint256 minAmountOut,
-            bool useFullBalance,
-            bytes memory swapCalldata
-        ) = abi.decode(data, (address, address, uint256, bool, bytes));
+        (address dex, address outToken, uint256 minAmountOut, bool useFullBalance, bytes memory swapCalldata) =
+            abi.decode(data, (address, address, uint256, bool, bytes));
 
         if (dex == address(0) || outToken == address(0)) revert ZeroAddress();
         if (!isApprovedDex[dex]) revert UnauthorizedDex(dex);
@@ -168,12 +157,13 @@ contract SwapStrategyAdapter is
         // Execute the swap. In full-balance mode the calldata may have a stale amount
         // baked in, but many aggregators (Odos, 0x) will just pull whatever was approved.
         // The minAmountOut check below is the real protection.
-        (bool success, ) = dex.call(swapCalldata);
+        (bool success,) = dex.call(swapCalldata);
         if (!success) revert SwapFailed();
 
         uint256 received = out.balanceOf(address(this)) - balBefore;
-        if (received < minAmountOut)
+        if (received < minAmountOut) {
             revert SlippageExceeded(received, minAmountOut);
+        }
 
         // Clear residual approval.
         IERC20(token).forceApprove(dex, 0);
@@ -187,24 +177,13 @@ contract SwapStrategyAdapter is
             IERC20(token).safeTransfer(executor, residualInput);
         }
 
-        emit SwapExecuted(
-            token,
-            outToken,
-            dex,
-            amountIn,
-            received,
-            minAmountOut
-        );
+        emit SwapExecuted(token, outToken, dex, amountIn, received, minAmountOut);
 
         return (outToken, received);
     }
 
     /// @notice Rescue tokens accidentally sent to adapter
-    function rescueToken(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 

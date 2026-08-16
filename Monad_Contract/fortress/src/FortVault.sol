@@ -14,12 +14,8 @@ import "./interfaces/IFortProtocolEx.sol";
 /// @notice Users specify how to split USDC across protocols in a single transaction.
 ///         All protocol tokens (shares, LP, NFTs) go directly to the user.
 ///         Vault never holds any tokens beyond a single transaction.
-contract FortVault is
-    Ownable2StepUpgradeable,
-    PausableUpgradeable,
-    UUPSUpgradeable,
-    ReentrancyGuardTransient
-{
+
+contract FortVault is Ownable2StepUpgradeable, PausableUpgradeable, UUPSUpgradeable, ReentrancyGuardTransient {
     using SafeERC20 for IERC20;
 
     // ──────────── State ────────────
@@ -27,8 +23,8 @@ contract FortVault is
     IERC20 public usdc;
 
     struct ProtocolInfo {
-        address addr;       // protocol or adapter address
-        bool isERC4626;     // true = call IERC4626 directly, false = call IFortProtocol
+        address addr; // protocol or adapter address
+        bool isERC4626; // true = call IERC4626 directly, false = call IFortProtocol
     }
 
     mapping(bytes32 => ProtocolInfo) public protocols;
@@ -37,18 +33,19 @@ contract FortVault is
     address private __deprecated_lifiDiamond;
     mapping(address => bool) private __deprecated_isApprovedDex;
 
-    uint16 public depositFeeBps;                    // 0-500 (0%-5%)
+    uint16 public depositFeeBps; // 0-500 (0%-5%)
     uint16 public constant MAX_DEPOSIT_FEE_BPS = 500;
 
-    uint48 public feeTimelockDelay;                  // configurable delay in seconds
+    uint48 public feeTimelockDelay; // configurable delay in seconds
     uint48 public constant MIN_FEE_TIMELOCK_DELAY = 12 hours;
     uint48 public constant MAX_FEE_TIMELOCK_DELAY = 7 days;
     uint48 public constant DEFAULT_FEE_TIMELOCK_DELAY = 48 hours;
 
     struct PendingFeeChange {
         uint16 newFeeBps;
-        uint48 executeAfter;     // timestamp when executable
+        uint48 executeAfter; // timestamp when executable
     }
+
     PendingFeeChange public pendingFeeChange;
 
     address public feeRecipient;
@@ -59,14 +56,14 @@ contract FortVault is
     struct DepositEntry {
         bytes32 protocolKey;
         uint256 amount;
-        uint256 minSharesOut;  // slippage protection (ERC4626 only; 0 = no check)
+        uint256 minSharesOut; // slippage protection (ERC4626 only; 0 = no check)
         bytes data;
     }
 
     struct WithdrawEntry {
         bytes32 protocolKey;
         uint256 shares;
-        uint256 minUsdcOut;    // slippage protection (0 = no check)
+        uint256 minUsdcOut; // slippage protection (0 = no check)
         bytes data;
     }
 
@@ -74,8 +71,8 @@ contract FortVault is
         bytes32 fromProtocol;
         bytes32 toProtocol;
         uint256 shares;
-        uint256 minUsdcOut;    // slippage on redeem leg (0 = no check)
-        uint256 minSharesOut;  // slippage on deposit leg (ERC4626 only; 0 = no check)
+        uint256 minUsdcOut; // slippage on redeem leg (0 = no check)
+        uint256 minSharesOut; // slippage on deposit leg (ERC4626 only; 0 = no check)
         bytes fromData;
         bytes toData;
     }
@@ -320,7 +317,9 @@ contract FortVault is
             if (pFrom.isERC4626) {
                 usdcOut = IERC4626(pFrom.addr).redeem(entries[i].shares, address(this), msg.sender);
             } else if (entries[i].fromData.length > 0) {
-                usdcOut = IFortProtocolEx(pFrom.addr).redeemFor(entries[i].shares, address(this), msg.sender, entries[i].fromData);
+                usdcOut = IFortProtocolEx(pFrom.addr).redeemFor(
+                    entries[i].shares, address(this), msg.sender, entries[i].fromData
+                );
             } else {
                 usdcOut = IFortProtocol(pFrom.addr).redeemFor(entries[i].shares, address(this), msg.sender);
             }
@@ -361,8 +360,13 @@ contract FortVault is
     //                    OWNER: PAUSE
     // ══════════════════════════════════════════════════════════════
 
-    function pause() external onlyOwner { _pause(); }
-    function unpause() external onlyOwner { _unpause(); }
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
+    }
 
     // ══════════════════════════════════════════════════════════════
     //                    UUPS

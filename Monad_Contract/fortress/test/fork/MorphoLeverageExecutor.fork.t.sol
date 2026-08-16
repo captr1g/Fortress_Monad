@@ -16,43 +16,24 @@ import "../mocks/MockDex.sol";
 ///         by LiFi and is not deterministic in a fork). Collateral output is sized off the real
 ///         oracle so the resulting LTV is comfortably below LLTV.
 interface IMorphoForkLev {
-    function idToMarketParams(
-        bytes32 id
-    )
+    function idToMarketParams(bytes32 id)
         external
         view
-        returns (
-            address loanToken,
-            address collateralToken,
-            address oracle,
-            address irm,
-            uint256 lltv
-        );
+        returns (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv);
 
-    function position(
-        bytes32 id,
-        address user
-    )
+    function position(bytes32 id, address user)
         external
         view
-        returns (
-            uint256 supplyShares,
-            uint128 borrowShares,
-            uint128 collateral
-        );
+        returns (uint256 supplyShares, uint128 borrowShares, uint128 collateral);
 
-    function setAuthorization(
-        address authorized,
-        bool newIsAuthorized
-    ) external;
+    function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
 contract MorphoLeverageExecutorForkTest is Test {
     uint256 internal constant ORACLE_PRICE_SCALE = 1e36;
 
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
-    bytes32 constant MARKET_ID =
-        0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
+    bytes32 constant MARKET_ID = 0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
 
     MorphoLeverageExecutor internal lev;
     MockDex internal dex;
@@ -63,13 +44,8 @@ contract MorphoLeverageExecutorForkTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("BASE_RPC_URL"));
 
-        (
-            address loanToken,
-            address collateralToken,
-            address oracle,
-            address irm,
-            uint256 lltv
-        ) = IMorphoForkLev(MORPHO_BLUE).idToMarketParams(MARKET_ID);
+        (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
+            IMorphoForkLev(MORPHO_BLUE).idToMarketParams(MARKET_ID);
         market = IMorphoBlue.MarketParams({
             loanToken: loanToken,
             collateralToken: collateralToken,
@@ -79,10 +55,8 @@ contract MorphoLeverageExecutorForkTest is Test {
         });
 
         MorphoLeverageExecutor levImpl = new MorphoLeverageExecutor(MORPHO_BLUE);
-        ERC1967Proxy levProxy = new ERC1967Proxy(
-            address(levImpl),
-            abi.encodeCall(MorphoLeverageExecutor.initialize, (address(this)))
-        );
+        ERC1967Proxy levProxy =
+            new ERC1967Proxy(address(levImpl), abi.encodeCall(MorphoLeverageExecutor.initialize, (address(this))));
         lev = MorphoLeverageExecutor(address(levProxy));
         dex = new MockDex();
         lev.setApprovedDex(address(dex), true);
@@ -110,45 +84,27 @@ contract MorphoLeverageExecutorForkTest is Test {
         vm.stopPrank();
 
         bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (
-                market.loanToken,
-                swapIn,
-                market.collateralToken,
-                collatOut,
-                address(lev)
-            )
+            MockDex.swapExact, (market.loanToken, swapIn, market.collateralToken, collatOut, address(lev))
         );
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: market,
-                inputAssets: input,
-                flashAssets: flash,
-                minCollateralOut: (collatOut * 99) / 100,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: market,
+            inputAssets: input,
+            flashAssets: flash,
+            minCollateralOut: (collatOut * 99) / 100,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         lev.openLeverage(p);
 
-        (, uint128 borrowShares, uint128 collateral) = IMorphoForkLev(
-            MORPHO_BLUE
-        ).position(MARKET_ID, user);
+        (, uint128 borrowShares, uint128 collateral) = IMorphoForkLev(MORPHO_BLUE).position(MARKET_ID, user);
 
         assertEq(collateral, collatOut, "collateral not supplied on real morpho");
         assertGt(borrowShares, 0, "no debt opened on real morpho");
-        assertEq(
-            IERC20(market.loanToken).balanceOf(address(lev)),
-            0,
-            "no loan dust"
-        );
-        assertEq(
-            IERC20(market.collateralToken).balanceOf(address(lev)),
-            0,
-            "no collateral dust"
-        );
+        assertEq(IERC20(market.loanToken).balanceOf(address(lev)), 0, "no loan dust");
+        assertEq(IERC20(market.collateralToken).balanceOf(address(lev)), 0, "no collateral dust");
     }
 }

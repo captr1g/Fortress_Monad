@@ -25,20 +25,16 @@ contract MockStrategyAdapter is IStrategyAdapter {
     IStrategyAdapter.ActionType public lastAction;
     uint256 public callCount;
 
-    function execute(
-        ActionType action,
-        address token,
-        uint256 amount,
-        address /* beneficiary */,
-        bytes calldata data
-    ) external returns (address tokenOut, uint256 amountOut) {
+    function execute(ActionType action, address token, uint256 amount, address, /* beneficiary */ bytes calldata data)
+        external
+        returns (address tokenOut, uint256 amountOut)
+    {
         lastAmountIn = amount;
         lastToken = token;
         lastAction = action;
         callCount++;
 
-        (address outToken, uint256 mintAmount, uint256 reportAmount) = abi
-            .decode(data, (address, uint256, uint256));
+        (address outToken, uint256 mintAmount, uint256 reportAmount) = abi.decode(data, (address, uint256, uint256));
 
         if (outToken == address(0)) {
             // Consume the received input (e.g. supply-like). No liquid output.

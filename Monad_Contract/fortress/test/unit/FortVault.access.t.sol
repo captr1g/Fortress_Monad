@@ -16,30 +16,21 @@ contract FortVaultAccessTest is FortVaultTestBase {
 
     function test_pause_nonOwner_reverts() public {
         vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            nonOwner
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), nonOwner));
         vault.pause();
     }
 
     function test_unpause_nonOwner_reverts() public {
         vault.pause();
         vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            nonOwner
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), nonOwner));
         vault.unpause();
     }
 
     function test_upgradeToAndCall_nonOwner_reverts() public {
         FortVault newImpl = new FortVault();
         vm.prank(nonOwner);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            nonOwner
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), nonOwner));
         vault.upgradeToAndCall(address(newImpl), "");
     }
 
@@ -65,5 +56,4 @@ contract FortVaultAccessTest is FortVaultTestBase {
         vault.acceptOwnership();
         assertEq(vault.owner(), newOwner);
     }
-
 }

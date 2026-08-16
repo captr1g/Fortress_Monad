@@ -51,7 +51,11 @@ contract MockFortProtocolEx is IFortProtocolEx {
         lastData = data;
     }
 
-    function redeemFor(uint256 _shares, address receiver, address owner, bytes calldata data) external override returns (uint256) {
+    function redeemFor(uint256 _shares, address receiver, address owner, bytes calldata data)
+        external
+        override
+        returns (uint256)
+    {
         shares[owner] -= _shares;
         usdc.safeTransfer(receiver, _shares);
         redeemExCallCount++;

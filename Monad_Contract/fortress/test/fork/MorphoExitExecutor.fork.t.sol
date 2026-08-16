@@ -14,30 +14,15 @@ import "../mocks/MockDex.sol";
 ///         swap leg uses a fork-deployed MockDex funded via `deal` (the real swap calldata
 ///         is built off-chain by LiFi and is not deterministic in a fork).
 interface IMorphoForkExit {
-    function idToMarketParams(
-        bytes32 id
-    )
+    function idToMarketParams(bytes32 id)
         external
         view
-        returns (
-            address loanToken,
-            address collateralToken,
-            address oracle,
-            address irm,
-            uint256 lltv
-        );
+        returns (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv);
 
-    function position(
-        bytes32 id,
-        address user
-    )
+    function position(bytes32 id, address user)
         external
         view
-        returns (
-            uint256 supplyShares,
-            uint128 borrowShares,
-            uint128 collateral
-        );
+        returns (uint256 supplyShares, uint128 borrowShares, uint128 collateral);
 
     function supplyCollateral(
         IMorphoBlue.MarketParams memory marketParams,
@@ -54,16 +39,12 @@ interface IMorphoForkExit {
         address receiver
     ) external returns (uint256, uint256);
 
-    function setAuthorization(
-        address authorized,
-        bool newIsAuthorized
-    ) external;
+    function setAuthorization(address authorized, bool newIsAuthorized) external;
 }
 
 contract MorphoExitExecutorForkTest is Test {
     address constant MORPHO_BLUE = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb;
-    bytes32 constant MARKET_ID =
-        0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
+    bytes32 constant MARKET_ID = 0x1a3e69d0109bb1be42b80e11034bb6ee98fc466721f26845dc83b2aa8d979137;
 
     MorphoExitExecutor internal exit;
     MockDex internal dex;
@@ -74,13 +55,8 @@ contract MorphoExitExecutorForkTest is Test {
     function setUp() public {
         vm.createSelectFork(vm.envString("BASE_RPC_URL"));
 
-        (
-            address loanToken,
-            address collateralToken,
-            address oracle,
-            address irm,
-            uint256 lltv
-        ) = IMorphoForkExit(MORPHO_BLUE).idToMarketParams(MARKET_ID);
+        (address loanToken, address collateralToken, address oracle, address irm, uint256 lltv) =
+            IMorphoForkExit(MORPHO_BLUE).idToMarketParams(MARKET_ID);
         market = IMorphoBlue.MarketParams({
             loanToken: loanToken,
             collateralToken: collateralToken,
@@ -90,10 +66,8 @@ contract MorphoExitExecutorForkTest is Test {
         });
 
         MorphoExitExecutor exitImpl = new MorphoExitExecutor(MORPHO_BLUE);
-        ERC1967Proxy exitProxy = new ERC1967Proxy(
-            address(exitImpl),
-            abi.encodeCall(MorphoExitExecutor.initialize, (address(this)))
-        );
+        ERC1967Proxy exitProxy =
+            new ERC1967Proxy(address(exitImpl), abi.encodeCall(MorphoExitExecutor.initialize, (address(this))));
         exit = MorphoExitExecutor(address(exitProxy));
         dex = new MockDex();
         exit.setApprovedDex(address(dex), true);
@@ -107,18 +81,10 @@ contract MorphoExitExecutorForkTest is Test {
         deal(market.collateralToken, user, collateralAmt);
         vm.startPrank(user);
         IERC20(market.collateralToken).approve(MORPHO_BLUE, collateralAmt);
-        IMorphoForkExit(MORPHO_BLUE).supplyCollateral(
-            market,
-            collateralAmt,
-            user,
-            ""
-        );
+        IMorphoForkExit(MORPHO_BLUE).supplyCollateral(market, collateralAmt, user, "");
         IMorphoForkExit(MORPHO_BLUE).borrow(market, debtAmt, 0, user, user);
         // Move borrowed funds out so exit-proceed assertions are clean.
-        IERC20(market.loanToken).transfer(
-            address(0xdead),
-            IERC20(market.loanToken).balanceOf(user)
-        );
+        IERC20(market.loanToken).transfer(address(0xdead), IERC20(market.loanToken).balanceOf(user));
         vm.stopPrank();
     }
 
@@ -131,14 +97,7 @@ contract MorphoExitExecutorForkTest is Test {
         uint256 swapOut = 50e6;
         deal(market.loanToken, address(dex), swapOut);
         bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (
-                market.collateralToken,
-                collateralAmt,
-                market.loanToken,
-                swapOut,
-                address(exit)
-            )
+            MockDex.swapExact, (market.collateralToken, collateralAmt, market.loanToken, swapOut, address(exit))
         );
 
         MorphoExitExecutor.ExitParams memory p = MorphoExitExecutor.ExitParams({
@@ -156,25 +115,11 @@ contract MorphoExitExecutorForkTest is Test {
         vm.prank(user);
         exit.exitPosition(p);
 
-        (, uint128 borrowShares, uint128 collateral) = IMorphoForkExit(
-            MORPHO_BLUE
-        ).position(MARKET_ID, user);
+        (, uint128 borrowShares, uint128 collateral) = IMorphoForkExit(MORPHO_BLUE).position(MARKET_ID, user);
         assertEq(borrowShares, 0, "debt not cleared on real morpho");
         assertEq(collateral, 0, "collateral not withdrawn on real morpho");
-        assertGt(
-            IERC20(market.loanToken).balanceOf(user),
-            0,
-            "user received surplus"
-        );
-        assertEq(
-            IERC20(market.loanToken).balanceOf(address(exit)),
-            0,
-            "no loan dust"
-        );
-        assertEq(
-            IERC20(market.collateralToken).balanceOf(address(exit)),
-            0,
-            "no collateral dust"
-        );
+        assertGt(IERC20(market.loanToken).balanceOf(user), 0, "user received surplus");
+        assertEq(IERC20(market.loanToken).balanceOf(address(exit)), 0, "no loan dust");
+        assertEq(IERC20(market.collateralToken).balanceOf(address(exit)), 0, "no collateral dust");
     }
 }

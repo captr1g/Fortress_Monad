@@ -26,10 +26,7 @@ contract PendleAdapterFuzzTest is Test {
         pendleRouter = new MockPendleRouter(address(usdc), address(ptToken), 1e6);
 
         PendleAdapter impl = new PendleAdapter(address(usdc), address(pendleRouter));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(PendleAdapter.initialize, (owner, vault))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(PendleAdapter.initialize, (owner, vault)));
         adapter = PendleAdapter(address(proxy));
         adapter.setApprovedMarket(market, true);
     }

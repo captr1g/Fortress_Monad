@@ -41,8 +41,7 @@ contract RedeployAdapters is Script {
 
         MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(MORPHO_BLUE);
         ERC1967Proxy morphoProxy = new ERC1967Proxy(
-            address(morphoImpl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, deployer))
+            address(morphoImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (executorAddr, deployer))
         );
         MorphoStrategyAdapter newMorphoAdapter = MorphoStrategyAdapter(address(morphoProxy));
 
@@ -77,10 +76,7 @@ contract RedeployAdapters is Script {
         // console.log("New SwapStrategyAdapter:", address(newSwapAdapter));
         console.log("");
         console.log("=== Update your backend .env with ===");
-        console.log(
-            "FORTRESS_MORPHO_ADAPTER=%s",
-            vm.toString(address(newMorphoAdapter))
-        );
+        console.log("FORTRESS_MORPHO_ADAPTER=%s", vm.toString(address(newMorphoAdapter)));
         // console.log(
         //     "FORTRESS_SWAP_ADAPTER=%s",
         //     vm.toString(address(newSwapAdapter))

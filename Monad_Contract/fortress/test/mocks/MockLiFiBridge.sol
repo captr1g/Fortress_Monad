@@ -27,11 +27,7 @@ contract MockLiFiBridge {
 
     /// @notice Simulates a LiFi bridge call. Pulls USDC from caller.
     /// @dev Test calldata: abi.encodeCall(MockLiFiBridge.bridgeTokens, (amount, destChainId, receiver))
-    function bridgeTokens(
-        uint256 amount,
-        uint256 destChainId,
-        address receiver
-    ) external {
+    function bridgeTokens(uint256 amount, uint256 destChainId, address receiver) external {
         require(!shouldFail, "bridge failed");
 
         usdc.safeTransferFrom(msg.sender, address(this), amount);

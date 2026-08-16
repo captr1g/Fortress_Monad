@@ -32,12 +32,7 @@ contract DeployTimelock is Script {
         executors[0] = deployer;
 
         // admin = address(0) → self-governed, no external admin
-        TimelockController timelock = new TimelockController(
-            MIN_DELAY,
-            proposers,
-            executors,
-            address(0)
-        );
+        TimelockController timelock = new TimelockController(MIN_DELAY, proposers, executors, address(0));
 
         vm.stopBroadcast();
 

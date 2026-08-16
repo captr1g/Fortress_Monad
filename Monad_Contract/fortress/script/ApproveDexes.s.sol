@@ -15,26 +15,11 @@ contract ApproveDexes is Script {
         SwapStrategyAdapter adapter = SwapStrategyAdapter(SWAP_ADAPTER);
 
         // Approve all known LiFi sub-routers on Base (checksummed)
-        adapter.setApprovedDex(
-            0xAC4c6e212A361c968F1725b4d055b47E63F80b75,
-            true
-        );
-        adapter.setApprovedDex(
-            0xC87De04e2EC1F4282dFF2933A2D58199f688fC3d,
-            true
-        );
-        adapter.setApprovedDex(
-            0x0D05a7D3448512B78fa8A9e46c4872C88C4a0D05,
-            true
-        );
-        adapter.setApprovedDex(
-            0x6131B5fae19EA4f9D964eAc0408E4408b66337b5,
-            true
-        );
-        adapter.setApprovedDex(
-            0xC10eE9031F2a0B84766A86B55a8D90F357910fb4,
-            true
-        );
+        adapter.setApprovedDex(0xAC4c6e212A361c968F1725b4d055b47E63F80b75, true);
+        adapter.setApprovedDex(0xC87De04e2EC1F4282dFF2933A2D58199f688fC3d, true);
+        adapter.setApprovedDex(0x0D05a7D3448512B78fa8A9e46c4872C88C4a0D05, true);
+        adapter.setApprovedDex(0x6131B5fae19EA4f9D964eAc0408E4408b66337b5, true);
+        adapter.setApprovedDex(0xC10eE9031F2a0B84766A86B55a8D90F357910fb4, true);
 
         vm.stopBroadcast();
 

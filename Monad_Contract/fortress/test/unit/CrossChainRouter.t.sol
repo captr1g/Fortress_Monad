@@ -26,14 +26,9 @@ contract CrossChainRouterTest is Test {
         usdc = new MockUSDC();
         bridge = new MockLiFiBridge(address(usdc));
 
-        CrossChainRouter impl = new CrossChainRouter(
-            address(usdc),
-            address(bridge)
-        );
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(CrossChainRouter.initialize, (keeper, owner))
-        );
+        CrossChainRouter impl = new CrossChainRouter(address(usdc), address(bridge));
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(CrossChainRouter.initialize, (keeper, owner)));
         router = CrossChainRouter(address(proxy));
 
         // Approve bridge selectors used in tests
@@ -51,13 +46,16 @@ contract CrossChainRouterTest is Test {
     }
 
     function _buildBridgeData(uint256 amount, uint256 destChainId, address receiver)
-        internal view returns (bytes memory)
+        internal
+        view
+        returns (bytes memory)
     {
         return abi.encodeCall(MockLiFiBridge.bridgeTokens, (amount, destChainId, receiver));
     }
 
     function _depositCrossChain(address _user, uint256 amount, uint256 destChainId)
-        internal returns (bytes32 requestId)
+        internal
+        returns (bytes32 requestId)
     {
         _fundAndApprove(_user, amount);
         bytes memory lifiData = _buildBridgeData(amount, destChainId, _user);
@@ -67,7 +65,8 @@ contract CrossChainRouterTest is Test {
     }
 
     function _initiateWithdraw(address _user, uint256 expectedAmount, uint256 sourceChainId)
-        internal returns (bytes32 requestId)
+        internal
+        returns (bytes32 requestId)
     {
         vm.prank(_user);
         requestId = router.initiateWithdraw(expectedAmount, 0, sourceChainId, DEADLINE);
@@ -582,10 +581,7 @@ contract CrossChainRouterTest is Test {
 
     function test_setKeeper_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         router.setKeeper(address(0xCAFE));
     }
 
@@ -611,10 +607,7 @@ contract CrossChainRouterTest is Test {
 
     function test_pause_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         router.pause();
     }
 
@@ -671,10 +664,7 @@ contract CrossChainRouterTest is Test {
         usdc.mint(address(router), 100e6);
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         router.rescueToken(address(usdc), user, 100e6);
     }
 

@@ -26,10 +26,8 @@ contract SwapStrategyAdapterUnitTest is Test {
         dex = new MockDex();
 
         SwapStrategyAdapter impl = new SwapStrategyAdapter();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(SwapStrategyAdapter.initialize, (executorAddr, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(SwapStrategyAdapter.initialize, (executorAddr, owner)));
         adapter = SwapStrategyAdapter(address(proxy));
         adapter.setApprovedDex(address(dex), true);
         adapter.setApprovedSwapSelector(MockDex.swapExact.selector, true);
@@ -40,36 +38,23 @@ contract SwapStrategyAdapterUnitTest is Test {
     }
 
     function _ownableErr(address who) internal pure returns (bytes memory) {
-        return
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                who
-            );
+        return abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), who);
     }
 
-    function _swapData(
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut
-    ) internal view returns (bytes memory) {
-        bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (
-                address(usdc),
-                amountIn,
-                address(yoUSD),
-                amountOut,
-                address(adapter)
-            )
+    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes memory swapCalldata =
+            abi.encodeCall(MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), amountOut, address(adapter)));
+        return abi.encode(
+            address(dex),
+            address(yoUSD),
+            minAmountOut,
+            false, // useFullBalance = false (exact mode)
+            swapCalldata
         );
-        return
-            abi.encode(
-                address(dex),
-                address(yoUSD),
-                minAmountOut,
-                false, // useFullBalance = false (exact mode)
-                swapCalldata
-            );
     }
 
     // ──────────────────────────── happy path ────────────────────────────
@@ -83,13 +68,8 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 received) = adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        (address tokenOut, uint256 received) =
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(tokenOut, address(yoUSD));
         assertEq(received, amountOut);
@@ -105,13 +85,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(100e6, 250e18, 200e18);
         vm.prank(nonOwner);
         vm.expectRevert(SwapStrategyAdapter.OnlyExecutor.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 100e6, address(0), data);
     }
 
     // ──────────────────────────── UnauthorizedDex ────────────────────────────
@@ -122,32 +96,13 @@ contract SwapStrategyAdapterUnitTest is Test {
 
         // Build data pointing at a non-allowlisted dex.
         address badDex = address(0xDEAD);
-        bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (address(usdc), amountIn, address(yoUSD), 250e18, address(adapter))
-        );
-        bytes memory data = abi.encode(
-            badDex,
-            address(yoUSD),
-            uint256(200e18),
-            false,
-            swapCalldata
-        );
+        bytes memory swapCalldata =
+            abi.encodeCall(MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), 250e18, address(adapter)));
+        bytes memory data = abi.encode(badDex, address(yoUSD), uint256(200e18), false, swapCalldata);
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                SwapStrategyAdapter.UnauthorizedDex.selector,
-                badDex
-            )
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(SwapStrategyAdapter.UnauthorizedDex.selector, badDex));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── SlippageExceeded ────────────────────────────
@@ -161,20 +116,8 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, minAmountOut);
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                SwapStrategyAdapter.SlippageExceeded.selector,
-                amountOut,
-                minAmountOut
-            )
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(SwapStrategyAdapter.SlippageExceeded.selector, amountOut, minAmountOut));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── SwapFailed ────────────────────────────
@@ -184,23 +127,11 @@ contract SwapStrategyAdapterUnitTest is Test {
         usdc.mint(address(adapter), amountIn);
 
         bytes memory swapCalldata = abi.encodeCall(MockDex.swapRevert, ());
-        bytes memory data = abi.encode(
-            address(dex),
-            address(yoUSD),
-            uint256(1),
-            false,
-            swapCalldata
-        );
+        bytes memory data = abi.encode(address(dex), address(yoUSD), uint256(1), false, swapCalldata);
 
         vm.prank(executorAddr);
         vm.expectRevert(SwapStrategyAdapter.SwapFailed.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     // ──────────────────────────── UnsupportedAction ────────────────────────────
@@ -209,13 +140,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(100e6, 250e18, 200e18);
         vm.prank(executorAddr);
         vm.expectRevert(SwapStrategyAdapter.UnsupportedAction.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SUPPLY_COLLATERAL, address(usdc), 100e6, address(0), data);
     }
 
     // ──────────────────────────── admin ────────────────────────────
@@ -257,10 +182,8 @@ contract SwapStrategyAdapterUnitTest is Test {
         uint256 amountOut = 250e18;
         usdc.mint(address(adapter), amountIn);
 
-        bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (address(usdc), amountIn, address(yoUSD), amountOut, address(adapter))
-        );
+        bytes memory swapCalldata =
+            abi.encodeCall(MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), amountOut, address(adapter)));
         bytes memory data = abi.encode(
             address(dex),
             address(yoUSD),
@@ -285,27 +208,13 @@ contract SwapStrategyAdapterUnitTest is Test {
 
     function test_swap_fullBalanceMode_zeroBalance_reverts() public {
         // No tokens on adapter
-        bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (address(usdc), 100e6, address(yoUSD), 250e18, address(adapter))
-        );
-        bytes memory data = abi.encode(
-            address(dex),
-            address(yoUSD),
-            uint256(1),
-            true,
-            swapCalldata
-        );
+        bytes memory swapCalldata =
+            abi.encodeCall(MockDex.swapExact, (address(usdc), 100e6, address(yoUSD), 250e18, address(adapter)));
+        bytes memory data = abi.encode(address(dex), address(yoUSD), uint256(1), true, swapCalldata);
 
         vm.prank(executorAddr);
         vm.expectRevert(SwapStrategyAdapter.ZeroBalance.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            0,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 0, address(0), data);
     }
 
     function test_swap_approvalCleanup() public {
@@ -316,13 +225,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(usdc.allowance(address(adapter), address(dex)), 0, "approval not cleared");
     }
@@ -350,13 +253,7 @@ contract SwapStrategyAdapterUnitTest is Test {
 
         vm.prank(executorAddr);
         vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()"))));
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            100e6,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), 100e6, address(0), data);
     }
 
     function test_unpause_restoresSwap() public {
@@ -370,13 +267,8 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        (address tokenOut, uint256 received) = adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        (address tokenOut, uint256 received) =
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(tokenOut, address(yoUSD));
         assertEq(received, amountOut);
@@ -400,13 +292,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(usdc.balanceOf(address(adapter)), 0, "adapter holds residual input");
         assertEq(yoUSD.balanceOf(executorAddr), amountOut, "output mismatch");
@@ -421,13 +307,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
 
         assertEq(usdc.balanceOf(address(adapter)), 0, "adapter holds input dust");
         assertEq(usdc.balanceOf(executorAddr), 0, "executor got unexpected input tokens");
@@ -442,25 +322,11 @@ contract SwapStrategyAdapterUnitTest is Test {
 
         bytes4 bogusSelector = bytes4(0xdeadbeef);
         bytes memory swapCalldata = abi.encodePacked(bogusSelector, abi.encode(uint256(0)));
-        bytes memory data = abi.encode(
-            address(dex),
-            address(yoUSD),
-            uint256(200e18),
-            false,
-            swapCalldata
-        );
+        bytes memory data = abi.encode(address(dex), address(yoUSD), uint256(200e18), false, swapCalldata);
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(SwapStrategyAdapter.UnauthorizedSelector.selector, bogusSelector)
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(SwapStrategyAdapter.UnauthorizedSelector.selector, bogusSelector));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     function test_swap_emptyCalldata_reverts() public {
@@ -468,23 +334,11 @@ contract SwapStrategyAdapterUnitTest is Test {
         usdc.mint(address(adapter), amountIn);
 
         bytes memory swapCalldata = hex"aabb";
-        bytes memory data = abi.encode(
-            address(dex),
-            address(yoUSD),
-            uint256(200e18),
-            false,
-            swapCalldata
-        );
+        bytes memory data = abi.encode(address(dex), address(yoUSD), uint256(200e18), false, swapCalldata);
 
         vm.prank(executorAddr);
         vm.expectRevert(SwapStrategyAdapter.ZeroAddress.selector);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 
     function test_setApprovedSwapSelector_owner() public {
@@ -511,13 +365,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         bytes memory data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
         assertEq(yoUSD.balanceOf(executorAddr), amountOut);
 
         // Revoke the selector.
@@ -527,15 +375,7 @@ contract SwapStrategyAdapterUnitTest is Test {
         data = _swapData(amountIn, amountOut, 200e18);
 
         vm.prank(executorAddr);
-        vm.expectRevert(
-            abi.encodeWithSelector(SwapStrategyAdapter.UnauthorizedSelector.selector, sel)
-        );
-        adapter.execute(
-            IStrategyAdapter.ActionType.SWAP,
-            address(usdc),
-            amountIn,
-            address(0),
-            data
-        );
+        vm.expectRevert(abi.encodeWithSelector(SwapStrategyAdapter.UnauthorizedSelector.selector, sel));
+        adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
     }
 }

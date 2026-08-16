@@ -48,8 +48,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         // Deploy FortSwapRouter
         FortSwapRouter routerImpl = new FortSwapRouter(address(mockUsdc), address(lifi));
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(routerImpl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
+            address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
         );
         swapRouter = FortSwapRouter(address(routerProxy));
         swapRouter.setApprovedDex(address(lifi), true);
@@ -117,14 +116,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         entries[1] = FortSwapRouter.SwapDepositEntry(keyAdapter, 4000, 0, ""); // 40%
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
 
         assertEq(adapter.lastAmount(), 400e6);
         assertGt(erc4626.balanceOf(user), 0);
@@ -141,19 +133,12 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         entries[2] = FortSwapRouter.SwapDepositEntry(keyAdapterEx, 3334, 0, "");
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
 
         // last entry gets remainder: 1000e6 - 333.3e6 - 333.3e6 = 333.4e6
         uint256 e0 = (amount * 3333) / 10000; // 333_300_000
         uint256 e1 = (amount * 3333) / 10000; // 333_300_000
-        uint256 e2 = amount - e0 - e1;        // 333_400_000
+        uint256 e2 = amount - e0 - e1; // 333_400_000
 
         assertEq(adapter.lastAmount(), e1);
         assertEq(adapterEx.lastAmount(), e2);
@@ -169,14 +154,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         entries[0] = FortSwapRouter.SwapDepositEntry(keyAdapterEx, 10000, 0, testData);
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
 
         assertEq(adapterEx.depositExCallCount(), 1);
         assertEq(adapterEx.lastData(), testData);
@@ -191,12 +169,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
     }
 
@@ -208,12 +181,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         vm.prank(user);
         vm.expectRevert(FortSwapRouter.ZeroAmount.selector);
         swapRouter.swapAndDeposit(
-            address(weth),
-            0,
-            0,
-            block.timestamp + 1,
-            _defaultSwapData(0),
-            _singleEntry(keyAdapter)
+            address(weth), 0, 0, block.timestamp + 1, _defaultSwapData(0), _singleEntry(keyAdapter)
         );
     }
 
@@ -227,14 +195,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         vm.expectRevert(FortSwapRouter.InvalidBps.selector);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
     }
 
     function test_swapAndDeposit_slippageExceeded_reverts() public {
@@ -291,14 +252,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedCallTo.selector, badDex));
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            swaps,
-            _singleEntry(keyAdapter)
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
     }
 
     function test_swapAndDeposit_unauthorizedApproveTo_reverts() public {
@@ -319,14 +273,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.UnauthorizedApproveTo.selector, badApprove));
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            swaps,
-            _singleEntry(keyAdapter)
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, swaps, _singleEntry(keyAdapter));
     }
 
     function test_swapAndDeposit_unknownProtocol_reverts() public {
@@ -339,14 +286,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.ProtocolNotFound.selector, badKey));
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
     }
 
     function test_swapAndDeposit_whenPaused_reverts() public {
@@ -355,12 +295,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
         swapRouter.swapAndDeposit(
-            address(weth),
-            100e6,
-            100e6,
-            block.timestamp + 1,
-            _defaultSwapData(100e6),
-            _singleEntry(keyAdapter)
+            address(weth), 100e6, 100e6, block.timestamp + 1, _defaultSwapData(100e6), _singleEntry(keyAdapter)
         );
     }
 
@@ -373,12 +308,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         vm.prank(user);
         vm.expectRevert(FortSwapRouter.InputTokenIsUsdc.selector);
         swapRouter.swapAndDeposit(
-            address(mockUsdc),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(mockUsdc), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
     }
 
@@ -486,16 +416,11 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
 
         uint256 expectedFee = (amount * 200) / 10000; // 20 USDC
-        uint256 expectedNet = amount - expectedFee;     // 980 USDC
+        uint256 expectedNet = amount - expectedFee; // 980 USDC
 
         assertEq(mockUsdc.balanceOf(owner) - ownerBefore, expectedFee, "fee to owner");
         assertEq(adapter.lastAmount(), expectedNet, "net to protocol");
@@ -512,12 +437,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
 
         uint256 expectedFee = (amount * 200) / 10000;
@@ -534,12 +454,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
 
         assertEq(mockUsdc.balanceOf(owner), ownerBefore, "no fee taken");
@@ -559,22 +474,15 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         uint256 ownerBefore = mockUsdc.balanceOf(owner);
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
 
         uint256 expectedFee = (amount * 200) / 10000; // 20
-        uint256 netAmount = amount - expectedFee;       // 980
+        uint256 netAmount = amount - expectedFee; // 980
 
         assertEq(mockUsdc.balanceOf(owner) - ownerBefore, expectedFee, "fee correct");
 
         uint256 expectedFirst = (netAmount * 6000) / 10000; // 588
-        uint256 expectedSecond = netAmount - expectedFirst;  // 392
+        uint256 expectedSecond = netAmount - expectedFirst; // 392
 
         assertEq(adapter.lastAmount(), expectedSecond, "adapter got remainder");
         assertGt(erc4626.balanceOf(user), 0, "user got ERC4626 shares");
@@ -594,14 +502,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         entries[0] = FortSwapRouter.SwapDepositEntry(key4626, 10000, amount, ""); // minSharesOut == amount
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
 
         assertEq(erc4626.balanceOf(user), amount, "shares received");
     }
@@ -616,14 +517,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(FortSwapRouter.SlippageExceeded.selector, amount, amount + 1));
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), entries);
     }
 
     // ══════════════════════════════════════════════════
@@ -639,12 +533,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSignature("EnforcedPause()"));
         swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
 
         // Unpause and retry — should succeed
@@ -652,12 +541,7 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
         vm.prank(user);
         swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _defaultSwapData(amount),
-            _singleEntry(keyAdapter)
+            address(weth), amount, amount, block.timestamp + 1, _defaultSwapData(amount), _singleEntry(keyAdapter)
         );
 
         assertEq(adapter.lastAmount(), amount);
@@ -687,10 +571,8 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
 
     function test_initialize_setsState() public {
         FortSwapRouter impl = new FortSwapRouter(address(mockUsdc), address(lifi));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(0xAA), address(0xBB)))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(FortSwapRouter.initialize, (address(0xAA), address(0xBB))));
         FortSwapRouter fresh = FortSwapRouter(address(proxy));
         assertEq(fresh.owner(), address(0xAA));
         assertEq(fresh.vault(), address(0xBB));
@@ -700,15 +582,9 @@ contract FortVaultSwapAndDepositTest is FortVaultTestBase {
         FortSwapRouter impl = new FortSwapRouter(address(mockUsdc), address(lifi));
 
         vm.expectRevert(FortSwapRouter.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(0), address(0xBB)))
-        );
+        new ERC1967Proxy(address(impl), abi.encodeCall(FortSwapRouter.initialize, (address(0), address(0xBB))));
 
         vm.expectRevert(FortSwapRouter.ZeroAddress.selector);
-        new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(0xAA), address(0)))
-        );
+        new ERC1967Proxy(address(impl), abi.encodeCall(FortSwapRouter.initialize, (address(0xAA), address(0))));
     }
 }

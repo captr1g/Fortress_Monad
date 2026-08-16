@@ -44,8 +44,7 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
         // Deploy FortSwapRouter
         FortSwapRouter routerImpl = new FortSwapRouter(address(mockUsdc), address(lifi));
         ERC1967Proxy routerProxy = new ERC1967Proxy(
-            address(routerImpl),
-            abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
+            address(routerImpl), abi.encodeCall(FortSwapRouter.initialize, (address(this), address(vault)))
         );
         swapRouter = FortSwapRouter(address(routerProxy));
         swapRouter.setApprovedDex(address(lifi), true);
@@ -77,14 +76,7 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
         entries[0] = FortSwapRouter.SwapDepositEntry(keyAdapter, 10000, 0, "");
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _makeSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _makeSwapData(amount), entries);
 
         assertEq(mockUsdc.balanceOf(address(swapRouter)), 0, "router must hold 0 USDC");
         assertEq(weth.balanceOf(address(swapRouter)), 0, "router must hold 0 WETH");
@@ -105,14 +97,7 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
         entries[1] = FortSwapRouter.SwapDepositEntry(keyAdapter, bps2, 0, "");
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _makeSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _makeSwapData(amount), entries);
 
         // Verify no dust left in router
         assertEq(mockUsdc.balanceOf(address(swapRouter)), 0, "no dust");
@@ -140,14 +125,7 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
         entries[2] = FortSwapRouter.SwapDepositEntry(keyAdapterEx, bps3, 0, "");
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _makeSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _makeSwapData(amount), entries);
 
         assertEq(mockUsdc.balanceOf(address(swapRouter)), 0, "no dust in router");
         assertEq(weth.balanceOf(address(swapRouter)), 0, "no weth in router");
@@ -180,14 +158,7 @@ contract FortVaultSwapAndDepositFuzzTest is FortVaultTestBase {
         entries[0] = FortSwapRouter.SwapDepositEntry(keyAdapter, 10000, 0, "");
 
         vm.prank(user);
-        swapRouter.swapAndDeposit(
-            address(weth),
-            amount,
-            amount,
-            block.timestamp + 1,
-            _makeSwapData(amount),
-            entries
-        );
+        swapRouter.swapAndDeposit(address(weth), amount, amount, block.timestamp + 1, _makeSwapData(amount), entries);
 
         uint256 expectedFee = (amount * uint256(feeBps)) / 10000;
         uint256 expectedNet = amount - expectedFee;

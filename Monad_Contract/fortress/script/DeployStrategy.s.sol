@@ -19,25 +19,21 @@ contract DeployStrategy is Script {
 
         // 1. Deploy FortStrategyExecutor (UUPS proxy)
         FortStrategyExecutor executorImpl = new FortStrategyExecutor();
-        ERC1967Proxy executorProxy = new ERC1967Proxy(
-            address(executorImpl),
-            abi.encodeCall(FortStrategyExecutor.initialize, ())
-        );
+        ERC1967Proxy executorProxy =
+            new ERC1967Proxy(address(executorImpl), abi.encodeCall(FortStrategyExecutor.initialize, ()));
         FortStrategyExecutor executor = FortStrategyExecutor(address(executorProxy));
 
         // 2. Deploy MorphoStrategyAdapter (UUPS proxy)
         MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(MORPHO_BLUE);
         ERC1967Proxy morphoProxy = new ERC1967Proxy(
-            address(morphoImpl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (address(executor), deployer))
+            address(morphoImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (address(executor), deployer))
         );
         MorphoStrategyAdapter morphoAdapter = MorphoStrategyAdapter(address(morphoProxy));
 
         // 3. Deploy SwapStrategyAdapter (UUPS proxy)
         SwapStrategyAdapter swapImpl = new SwapStrategyAdapter();
         ERC1967Proxy swapProxy = new ERC1967Proxy(
-            address(swapImpl),
-            abi.encodeCall(SwapStrategyAdapter.initialize, (address(executor), deployer))
+            address(swapImpl), abi.encodeCall(SwapStrategyAdapter.initialize, (address(executor), deployer))
         );
         SwapStrategyAdapter swapAdapter = SwapStrategyAdapter(address(swapProxy));
 

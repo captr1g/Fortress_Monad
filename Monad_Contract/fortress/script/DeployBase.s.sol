@@ -32,10 +32,7 @@ contract DeployBase is Script {
         //  1. FortVault (UUPS proxy)
         // ═══════════════════════════════════════════════
         FortVault vaultImpl = new FortVault();
-        ERC1967Proxy vaultProxy = new ERC1967Proxy(
-            address(vaultImpl),
-            abi.encodeCall(FortVault.initialize, (USDC))
-        );
+        ERC1967Proxy vaultProxy = new ERC1967Proxy(address(vaultImpl), abi.encodeCall(FortVault.initialize, (USDC)));
         FortVault vault = FortVault(address(vaultProxy));
         console.log("FortVault impl:", address(vaultImpl));
         console.log("FortVault proxy:", address(vaultProxy));
@@ -44,10 +41,8 @@ contract DeployBase is Script {
         //  2. LiFiAdapter (UUPS proxy)
         // ═══════════════════════════════════════════════
         LiFiAdapter lifiImpl = new LiFiAdapter(USDC, LIFI_DIAMOND);
-        ERC1967Proxy lifiProxy = new ERC1967Proxy(
-            address(lifiImpl),
-            abi.encodeCall(LiFiAdapter.initialize, (deployer, address(vaultProxy)))
-        );
+        ERC1967Proxy lifiProxy =
+            new ERC1967Proxy(address(lifiImpl), abi.encodeCall(LiFiAdapter.initialize, (deployer, address(vaultProxy))));
         LiFiAdapter lifiAdapter = LiFiAdapter(address(lifiProxy));
         console.log("LiFiAdapter impl:", address(lifiImpl));
         console.log("LiFiAdapter proxy:", address(lifiProxy));
@@ -56,10 +51,8 @@ contract DeployBase is Script {
         //  3. CrossChainRouter (UUPS proxy)
         // ═══════════════════════════════════════════════
         CrossChainRouter ccImpl = new CrossChainRouter(USDC, LIFI_DIAMOND);
-        ERC1967Proxy ccProxy = new ERC1967Proxy(
-            address(ccImpl),
-            abi.encodeCall(CrossChainRouter.initialize, (keeper, deployer))
-        );
+        ERC1967Proxy ccProxy =
+            new ERC1967Proxy(address(ccImpl), abi.encodeCall(CrossChainRouter.initialize, (keeper, deployer)));
         CrossChainRouter ccRouter = CrossChainRouter(address(ccProxy));
         console.log("CrossChainRouter impl:", address(ccImpl));
         console.log("CrossChainRouter proxy:", address(ccProxy));
@@ -69,8 +62,7 @@ contract DeployBase is Script {
         // ═══════════════════════════════════════════════
         FortSwapRouter swapImpl = new FortSwapRouter(USDC, LIFI_DIAMOND);
         ERC1967Proxy swapProxy = new ERC1967Proxy(
-            address(swapImpl),
-            abi.encodeCall(FortSwapRouter.initialize, (deployer, address(vaultProxy)))
+            address(swapImpl), abi.encodeCall(FortSwapRouter.initialize, (deployer, address(vaultProxy)))
         );
         FortSwapRouter swapRouter = FortSwapRouter(address(swapProxy));
         console.log("FortSwapRouter impl:", address(swapImpl));

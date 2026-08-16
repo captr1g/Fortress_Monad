@@ -22,11 +22,7 @@ interface IStrategyAdapter {
     /// @param data Protocol-specific encoded parameters
     /// @return tokenOut The output token produced by this action (address(0) if none)
     /// @return amountOut The output amount (0 if the action produces no liquid output to the executor)
-    function execute(
-        ActionType action,
-        address token,
-        uint256 amount,
-        address beneficiary,
-        bytes calldata data
-    ) external returns (address tokenOut, uint256 amountOut);
+    function execute(ActionType action, address token, uint256 amount, address beneficiary, bytes calldata data)
+        external
+        returns (address tokenOut, uint256 amountOut);
 }

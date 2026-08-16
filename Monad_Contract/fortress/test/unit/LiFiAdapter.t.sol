@@ -25,20 +25,17 @@ contract LiFiAdapterTest is Test {
         diamond = new MockLiFiDiamond(1e6); // 1:1 rate
 
         LiFiAdapter impl = new LiFiAdapter(address(usdc), address(diamond));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(LiFiAdapter.initialize, (owner, vault))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(LiFiAdapter.initialize, (owner, vault)));
         adapter = LiFiAdapter(address(proxy));
         // Whitelist diamond as approved DEX
         adapter.setApprovedDex(address(diamond), true);
     }
 
-    function _buildSwapDataFor(
-        address input,
-        address output,
-        uint256 amount
-    ) internal view returns (LibSwap.SwapData[] memory) {
+    function _buildSwapDataFor(address input, address output, uint256 amount)
+        internal
+        view
+        returns (LibSwap.SwapData[] memory)
+    {
         LibSwap.SwapData[] memory swaps = new LibSwap.SwapData[](1);
         swaps[0] = LibSwap.SwapData({
             callTo: address(diamond),
@@ -174,10 +171,7 @@ contract LiFiAdapterTest is Test {
         usdc.mint(address(adapter), 100e6);
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         adapter.rescueToken(address(usdc), user, 100e6);
     }
 
@@ -264,10 +258,7 @@ contract LiFiAdapterTest is Test {
 
     function test_setApprovedDex_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         adapter.setApprovedDex(address(0xDEAD), true);
     }
 
@@ -281,8 +272,7 @@ contract LiFiAdapterTest is Test {
         vm.startPrank(user);
         weth.approve(address(adapter), amount);
         adapter.swap(
-            address(weth), amount, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), amount)
+            address(weth), amount, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), amount)
         );
         vm.stopPrank();
 
@@ -299,8 +289,7 @@ contract LiFiAdapterTest is Test {
         vm.startPrank(user);
         weth.approve(address(adapter), amount);
         adapter.swap(
-            address(weth), amount, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), amount)
+            address(weth), amount, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), amount)
         );
         vm.stopPrank();
 
@@ -319,8 +308,7 @@ contract LiFiAdapterTest is Test {
         vm.startPrank(user);
         weth.approve(address(adapter), amount);
         adapter.swap(
-            address(weth), amount, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), amount)
+            address(weth), amount, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), amount)
         );
         vm.stopPrank();
 
@@ -376,7 +364,11 @@ contract LiFiAdapterTest is Test {
         weth.approve(address(adapter), 100e6);
         vm.expectRevert(LiFiAdapter.DeadlineExpired.selector);
         adapter.swap(
-            address(weth), 100e6, address(usdc), 0, block.timestamp - 1,
+            address(weth),
+            100e6,
+            address(usdc),
+            0,
+            block.timestamp - 1,
             _buildSwapDataFor(address(weth), address(usdc), 100e6)
         );
         vm.stopPrank();
@@ -385,28 +377,19 @@ contract LiFiAdapterTest is Test {
     function test_swap_zeroAmount_reverts() public {
         vm.prank(user);
         vm.expectRevert(LiFiAdapter.ZeroAmount.selector);
-        adapter.swap(
-            address(weth), 0, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), 0)
-        );
+        adapter.swap(address(weth), 0, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), 0));
     }
 
     function test_swap_zeroInputToken_reverts() public {
         vm.prank(user);
         vm.expectRevert(LiFiAdapter.ZeroAddress.selector);
-        adapter.swap(
-            address(0), 100e6, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(0), address(usdc), 100e6)
-        );
+        adapter.swap(address(0), 100e6, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(0), address(usdc), 100e6));
     }
 
     function test_swap_zeroOutputToken_reverts() public {
         vm.prank(user);
         vm.expectRevert(LiFiAdapter.ZeroAddress.selector);
-        adapter.swap(
-            address(weth), 100e6, address(0), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(0), 100e6)
-        );
+        adapter.swap(address(weth), 100e6, address(0), 0, DEADLINE, _buildSwapDataFor(address(weth), address(0), 100e6));
     }
 
     function test_swap_slippageExceeded_reverts() public {
@@ -418,8 +401,7 @@ contract LiFiAdapterTest is Test {
         weth.approve(address(adapter), 100e6);
         vm.expectRevert("slippage");
         adapter.swap(
-            address(weth), 100e6, address(usdc), 100e6, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), 100e6)
+            address(weth), 100e6, address(usdc), 100e6, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), 100e6)
         );
         vm.stopPrank();
     }
@@ -463,8 +445,7 @@ contract LiFiAdapterTest is Test {
         emit LiFiAdapter.Swapped(user, address(weth), address(usdc), amount, amount);
 
         adapter.swap(
-            address(weth), amount, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), amount)
+            address(weth), amount, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), amount)
         );
         vm.stopPrank();
     }
@@ -477,8 +458,7 @@ contract LiFiAdapterTest is Test {
         vm.startPrank(user);
         weth.approve(address(adapter), amount);
         adapter.swap(
-            address(weth), amount, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), amount)
+            address(weth), amount, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), amount)
         );
         vm.stopPrank();
 
@@ -494,8 +474,7 @@ contract LiFiAdapterTest is Test {
         vm.startPrank(randomUser);
         weth.approve(address(adapter), amount);
         adapter.swap(
-            address(weth), amount, address(usdc), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(usdc), amount)
+            address(weth), amount, address(usdc), 0, DEADLINE, _buildSwapDataFor(address(weth), address(usdc), amount)
         );
         vm.stopPrank();
 
@@ -510,8 +489,7 @@ contract LiFiAdapterTest is Test {
         weth.approve(address(adapter), 100e6);
         vm.expectRevert(LiFiAdapter.SameToken.selector);
         adapter.swap(
-            address(weth), 100e6, address(weth), 0, DEADLINE,
-            _buildSwapDataFor(address(weth), address(weth), 100e6)
+            address(weth), 100e6, address(weth), 0, DEADLINE, _buildSwapDataFor(address(weth), address(weth), 100e6)
         );
         vm.stopPrank();
     }

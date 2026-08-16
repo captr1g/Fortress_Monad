@@ -36,10 +36,7 @@ contract MorphoLeverageExecutorUnitTest is Test {
         oracle = new MockOracle(ORACLE_PRICE_1TO1);
 
         MorphoLeverageExecutor impl = new MorphoLeverageExecutor(address(morpho));
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(MorphoLeverageExecutor.initialize, (owner))
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(MorphoLeverageExecutor.initialize, (owner)));
         lev = MorphoLeverageExecutor(address(proxy));
         lev.setApprovedDex(address(dex), true);
         lev.setApprovedSwapSelector(MockDex.swapExact.selector, true);
@@ -54,28 +51,23 @@ contract MorphoLeverageExecutorUnitTest is Test {
     }
 
     function _market() internal view returns (IMorphoBlue.MarketParams memory) {
-        return
-            IMorphoBlue.MarketParams({
-                loanToken: address(usdc),
-                collateralToken: address(collat),
-                oracle: address(oracle),
-                irm: address(0),
-                lltv: LLTV
-            });
+        return IMorphoBlue.MarketParams({
+            loanToken: address(usdc),
+            collateralToken: address(collat),
+            oracle: address(oracle),
+            irm: address(0),
+            lltv: LLTV
+        });
     }
 
     // USDC → collateral swap calldata. `amountIn` is what the DEX pulls; `amountOut`
     // is the collateral delivered to `recipient`.
-    function _swapCalldata(
-        uint256 amountIn,
-        uint256 amountOut,
-        address recipient
-    ) internal view returns (bytes memory) {
-        return
-            abi.encodeCall(
-                MockDex.swapExact,
-                (address(usdc), amountIn, address(collat), amountOut, recipient)
-            );
+    function _swapCalldata(uint256 amountIn, uint256 amountOut, address recipient)
+        internal
+        view
+        returns (bytes memory)
+    {
+        return abi.encodeCall(MockDex.swapExact, (address(usdc), amountIn, address(collat), amountOut, recipient));
     }
 
     function _fundUser(uint256 amount) internal {
@@ -95,41 +87,29 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
         uint256 swapIn = input + flash; // 200 USDC
         uint256 collatOut = 2e18; // collateral worth ~200 USDC
-        bytes memory swapCalldata = _swapCalldata(
-            swapIn,
-            collatOut,
-            address(lev)
-        );
+        bytes memory swapCalldata = _swapCalldata(swapIn, collatOut, address(lev));
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: input,
-                flashAssets: flash,
-                minCollateralOut: 1.9e18,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: input,
+            flashAssets: flash,
+            minCollateralOut: 1.9e18,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         lev.openLeverage(p);
 
-        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(
-            _market(),
-            user
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(collateral, collatOut, "collateral not supplied");
         assertEq(borrowShares, flash, "debt not opened at flash amount");
 
         // No dust anywhere; user spent exactly their equity.
         assertEq(usdc.balanceOf(user), 0, "user holds leftover usdc");
         assertEq(usdc.balanceOf(address(lev)), 0, "executor holds usdc dust");
-        assertEq(
-            collat.balanceOf(address(lev)),
-            0,
-            "executor holds collateral dust"
-        );
+        assertEq(collat.balanceOf(address(lev)), 0, "executor holds collateral dust");
     }
 
     function testOpen3xLeverageSizesDebtCorrectly() public {
@@ -139,30 +119,22 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
         uint256 swapIn = input + flash; // 300 USDC
         uint256 collatOut = 3e18;
-        bytes memory swapCalldata = _swapCalldata(
-            swapIn,
-            collatOut,
-            address(lev)
-        );
+        bytes memory swapCalldata = _swapCalldata(swapIn, collatOut, address(lev));
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: input,
-                flashAssets: flash,
-                minCollateralOut: 2.9e18,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: input,
+            flashAssets: flash,
+            minCollateralOut: 2.9e18,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         lev.openLeverage(p);
 
-        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(
-            _market(),
-            user
-        );
+        (, uint128 borrowShares, uint128 collateral) = morpho.positionFor(_market(), user);
         assertEq(collateral, collatOut, "collateral mismatch");
         assertEq(borrowShares, flash, "3x debt mismatch");
     }
@@ -174,22 +146,17 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
         // DEX only consumes 190 USDC of the 200 approved → 10 USDC residual.
         uint256 collatOut = 1.9e18;
-        bytes memory swapCalldata = _swapCalldata(
-            190e6,
-            collatOut,
-            address(lev)
-        );
+        bytes memory swapCalldata = _swapCalldata(190e6, collatOut, address(lev));
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: input,
-                flashAssets: flash,
-                minCollateralOut: 1.8e18,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: input,
+            flashAssets: flash,
+            minCollateralOut: 1.8e18,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         lev.openLeverage(p);
@@ -204,24 +171,18 @@ contract MorphoLeverageExecutorUnitTest is Test {
         _fundUser(100e6);
         MockDex rogue = new MockDex();
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 100e6,
-                minCollateralOut: 1,
-                dex: address(rogue),
-                swapCalldata: "",
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 100e6,
+            minCollateralOut: 1,
+            dex: address(rogue),
+            swapCalldata: "",
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoLeverageExecutor.UnauthorizedDex.selector,
-                address(rogue)
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoLeverageExecutor.UnauthorizedDex.selector, address(rogue)));
         lev.openLeverage(p);
     }
 
@@ -230,40 +191,32 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
         // Swap returns only 1.5e18 collateral but we require at least 1.9e18.
         bytes memory swapCalldata = _swapCalldata(200e6, 1.5e18, address(lev));
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 100e6,
-                minCollateralOut: 1.9e18,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 100e6,
+            minCollateralOut: 1.9e18,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoLeverageExecutor.SlippageExceeded.selector,
-                1.5e18,
-                1.9e18
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(MorphoLeverageExecutor.SlippageExceeded.selector, 1.5e18, 1.9e18));
         lev.openLeverage(p);
     }
 
     function testRevertsOnExpiredDeadline() public {
         _fundUser(100e6);
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 100e6,
-                minCollateralOut: 1,
-                dex: address(dex),
-                swapCalldata: "",
-                deadline: block.timestamp - 1
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 100e6,
+            minCollateralOut: 1,
+            dex: address(dex),
+            swapCalldata: "",
+            deadline: block.timestamp - 1
+        });
 
         vm.prank(user);
         vm.expectRevert(MorphoLeverageExecutor.DeadlineExpired.selector);
@@ -272,16 +225,15 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
     function testRevertsOnZeroInputAssets() public {
         _fundUser(100e6);
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 0,
-                flashAssets: 100e6,
-                minCollateralOut: 1,
-                dex: address(dex),
-                swapCalldata: "",
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 0,
+            flashAssets: 100e6,
+            minCollateralOut: 1,
+            dex: address(dex),
+            swapCalldata: "",
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         vm.expectRevert(MorphoLeverageExecutor.ZeroInputAssets.selector);
@@ -290,16 +242,15 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
     function testRevertsOnZeroFlashAssets() public {
         _fundUser(100e6);
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 0,
-                minCollateralOut: 1,
-                dex: address(dex),
-                swapCalldata: "",
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 0,
+            minCollateralOut: 1,
+            dex: address(dex),
+            swapCalldata: "",
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         vm.expectRevert(MorphoLeverageExecutor.ZeroFlashAssets.selector);
@@ -308,16 +259,15 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
     function testRevertsOnZeroMinCollateralOut() public {
         _fundUser(100e6);
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 100e6,
-                minCollateralOut: 0,
-                dex: address(dex),
-                swapCalldata: "",
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 100e6,
+            minCollateralOut: 0,
+            dex: address(dex),
+            swapCalldata: "",
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         vm.expectRevert(MorphoLeverageExecutor.ZeroMinCollateralOut.selector);
@@ -339,12 +289,7 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
     function testOnlyOwnerSetApprovedDex() public {
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                user
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         lev.setApprovedDex(address(0xBEEF), true);
     }
 
@@ -352,21 +297,18 @@ contract MorphoLeverageExecutorUnitTest is Test {
         _fundUser(100e6);
         lev.pause();
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 100e6,
-                minCollateralOut: 1,
-                dex: address(dex),
-                swapCalldata: _swapCalldata(200e6, 2e18, address(lev)),
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 100e6,
+            minCollateralOut: 1,
+            dex: address(dex),
+            swapCalldata: _swapCalldata(200e6, 2e18, address(lev)),
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()")))
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("EnforcedPause()"))));
         lev.openLeverage(p);
     }
 
@@ -387,10 +329,7 @@ contract MorphoLeverageExecutorUnitTest is Test {
         usdc.mint(address(lev), 100e6);
 
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         lev.rescueToken(address(usdc), user, 100e6);
     }
 
@@ -405,30 +344,26 @@ contract MorphoLeverageExecutorUnitTest is Test {
         uint256 collatOut = 2e18;
         bytes memory swapCalldata = _swapCalldata(swapIn, collatOut, address(lev));
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: 100e6,
-                flashAssets: 100e6,
-                minCollateralOut: 1.9e18,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: 100e6,
+            flashAssets: 100e6,
+            minCollateralOut: 1.9e18,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         lev.openLeverage(p);
 
-        (, uint128 borrowShares, ) = morpho.positionFor(_market(), user);
+        (, uint128 borrowShares,) = morpho.positionFor(_market(), user);
         assertEq(borrowShares, 100e6, "position not opened after unpause");
     }
 
     function testPauseNonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(abi.encodeWithSelector(
-            bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-            user
-        ));
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         lev.pause();
     }
 
@@ -447,23 +382,19 @@ contract MorphoLeverageExecutorUnitTest is Test {
         // Approved DEX, but swapRevert selector NOT whitelisted.
         bytes memory swapCalldata = abi.encodeCall(MockDex.swapRevert, ());
 
-        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor
-            .LeverageParams({
-                market: _market(),
-                inputAssets: input,
-                flashAssets: flash,
-                minCollateralOut: 1,
-                dex: address(dex),
-                swapCalldata: swapCalldata,
-                deadline: block.timestamp + 600
-            });
+        MorphoLeverageExecutor.LeverageParams memory p = MorphoLeverageExecutor.LeverageParams({
+            market: _market(),
+            inputAssets: input,
+            flashAssets: flash,
+            minCollateralOut: 1,
+            dex: address(dex),
+            swapCalldata: swapCalldata,
+            deadline: block.timestamp + 600
+        });
 
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(
-                MorphoLeverageExecutor.UnauthorizedSelector.selector,
-                MockDex.swapRevert.selector
-            )
+            abi.encodeWithSelector(MorphoLeverageExecutor.UnauthorizedSelector.selector, MockDex.swapRevert.selector)
         );
         lev.openLeverage(p);
     }
@@ -479,12 +410,7 @@ contract MorphoLeverageExecutorUnitTest is Test {
 
     function testSetApprovedSwapSelector_nonOwner_reverts() public {
         vm.prank(user);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                bytes4(keccak256("OwnableUnauthorizedAccount(address)")),
-                user
-            )
-        );
+        vm.expectRevert(abi.encodeWithSelector(bytes4(keccak256("OwnableUnauthorizedAccount(address)")), user));
         lev.setApprovedSwapSelector(bytes4(0x12345678), true);
     }
 }

@@ -52,8 +52,7 @@ contract MorphoLeverageExecutor is
     /// @dev Transient-storage slot (EIP-1153) holding a keccak256 commitment to the in-flight
     ///      flash payload. Written before flashLoan, verified and cleared inside the callback;
     ///      auto-cleared at tx end so it cannot leak across txs.
-    uint256 private constant _FLASH_COMMITMENT_SLOT =
-        0x464f52545f4c45565f464c415348; // FORT_LEV_FLASH
+    uint256 private constant _FLASH_COMMITMENT_SLOT = 0x464f52545f4c45565f464c415348; // FORT_LEV_FLASH
 
     struct LeverageParams {
         IMorphoBlue.MarketParams market;
@@ -88,12 +87,7 @@ contract MorphoLeverageExecutor is
     error UnauthorizedSelector(bytes4 selector);
     error InsufficientRepayment(uint256 have, uint256 need);
 
-    event LeverageInitiated(
-        address indexed user,
-        bytes32 indexed marketId,
-        uint256 inputAssets,
-        uint256 flashAssets
-    );
+    event LeverageInitiated(address indexed user, bytes32 indexed marketId, uint256 inputAssets, uint256 flashAssets);
 
     event PositionLevered(
         address indexed user,
@@ -137,9 +131,7 @@ contract MorphoLeverageExecutor is
     /// @notice Open a leveraged Morpho position in a single tx via a flash loan.
     /// @dev The caller must have approved `inputAssets` of the loan token to this contract
     ///      and called `setAuthorization(this, true)` on Morpho.
-    function openLeverage(
-        LeverageParams calldata p
-    ) external whenNotPaused nonReentrant {
+    function openLeverage(LeverageParams calldata p) external whenNotPaused nonReentrant {
         if (block.timestamp > p.deadline) revert DeadlineExpired();
         if (p.inputAssets == 0) revert ZeroInputAssets();
         if (p.flashAssets == 0) revert ZeroFlashAssets();
@@ -149,11 +141,7 @@ contract MorphoLeverageExecutor is
         bytes32 id = keccak256(abi.encode(p.market));
 
         // Pull the caller's equity up front so it is available for the entry swap.
-        IERC20(p.market.loanToken).safeTransferFrom(
-            msg.sender,
-            address(this),
-            p.inputAssets
-        );
+        IERC20(p.market.loanToken).safeTransferFrom(msg.sender, address(this), p.inputAssets);
 
         FlashData memory fd = FlashData({
             user: msg.sender,
@@ -176,10 +164,7 @@ contract MorphoLeverageExecutor is
     }
 
     /// @inheritdoc IMorphoFlashLoanCallback
-    function onMorphoFlashLoan(
-        uint256 assets,
-        bytes calldata data
-    ) external override {
+    function onMorphoFlashLoan(uint256 assets, bytes calldata data) external override {
         if (msg.sender != address(morpho)) revert OnlyMorpho();
 
         bytes32 commitment = _getFlashCommitment();
@@ -193,23 +178,11 @@ contract MorphoLeverageExecutor is
         address collateralToken = fd.market.collateralToken;
 
         // Swap the full leveraged size (equity + flash) into collateral.
-        _swap(
-            loanToken,
-            collateralToken,
-            fd.inputAssets + assets,
-            fd.minCollateralOut,
-            fd.dex,
-            fd.swapCalldata
-        );
+        _swap(loanToken, collateralToken, fd.inputAssets + assets, fd.minCollateralOut, fd.dex, fd.swapCalldata);
 
         // Supply everything received as collateral on behalf of the user.
-        uint256 collateralSupplied = IERC20(collateralToken).balanceOf(
-            address(this)
-        );
-        IERC20(collateralToken).forceApprove(
-            address(morpho),
-            collateralSupplied
-        );
+        uint256 collateralSupplied = IERC20(collateralToken).balanceOf(address(this));
+        IERC20(collateralToken).forceApprove(address(morpho), collateralSupplied);
         morpho.supplyCollateral(fd.market, collateralSupplied, fd.user, "");
         IERC20(collateralToken).forceApprove(address(morpho), 0);
 
@@ -218,8 +191,9 @@ contract MorphoLeverageExecutor is
         morpho.borrow(fd.market, assets, 0, fd.user, address(this));
 
         uint256 loanBalance = IERC20(loanToken).balanceOf(address(this));
-        if (loanBalance < assets)
+        if (loanBalance < assets) {
             revert InsufficientRepayment(loanBalance, assets);
+        }
 
         // Morpho pulls `assets` back via transferFrom after this returns.
         IERC20(loanToken).forceApprove(address(morpho), assets);
@@ -228,20 +202,12 @@ contract MorphoLeverageExecutor is
         uint256 loanToUser = loanBalance - assets;
         if (loanToUser > 0) IERC20(loanToken).safeTransfer(fd.user, loanToUser);
 
-        uint256 collateralLeft = IERC20(collateralToken).balanceOf(
-            address(this)
-        );
-        if (collateralLeft > 0)
+        uint256 collateralLeft = IERC20(collateralToken).balanceOf(address(this));
+        if (collateralLeft > 0) {
             IERC20(collateralToken).safeTransfer(fd.user, collateralLeft);
+        }
 
-        emit PositionLevered(
-            fd.user,
-            id,
-            collateralSupplied,
-            assets,
-            loanToUser,
-            collateralLeft
-        );
+        emit PositionLevered(fd.user, id, collateralSupplied, assets, loanToUser, collateralLeft);
     }
 
     function _swap(
@@ -260,13 +226,12 @@ contract MorphoLeverageExecutor is
         uint256 balBefore = IERC20(tokenOut).balanceOf(address(this));
         IERC20(tokenIn).forceApprove(dex, amountIn);
 
-        (bool success, ) = dex.call(swapCalldata);
+        (bool success,) = dex.call(swapCalldata);
         if (!success) revert SwapFailed();
 
         IERC20(tokenIn).forceApprove(dex, 0);
 
-        uint256 received = IERC20(tokenOut).balanceOf(address(this)) -
-            balBefore;
+        uint256 received = IERC20(tokenOut).balanceOf(address(this)) - balBefore;
         if (received < minOut) revert SlippageExceeded(received, minOut);
     }
 
@@ -282,11 +247,7 @@ contract MorphoLeverageExecutor is
         }
     }
 
-    function rescueToken(
-        address token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function rescueToken(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
     }
 

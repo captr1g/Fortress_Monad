@@ -24,10 +24,7 @@ contract FortStrategyExecutorFuzzTest is Test {
         yoUSD = new MockERC20("Yield USD", "yoUSD", 18);
 
         FortStrategyExecutor impl = new FortStrategyExecutor();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(FortStrategyExecutor.initialize, ())
-        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), abi.encodeCall(FortStrategyExecutor.initialize, ()));
         executor = FortStrategyExecutor(address(proxy));
 
         adapter = new MockStrategyAdapter();
@@ -51,8 +48,7 @@ contract FortStrategyExecutorFuzzTest is Test {
 
         _fundAndApprove(user, balance);
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = IFortStrategyExecutor.Step({
             adapterId: 0,
             action: IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,
@@ -77,8 +73,7 @@ contract FortStrategyExecutorFuzzTest is Test {
         inputAmount = bound(inputAmount, 1, 1e30);
         _fundAndApprove(user, inputAmount);
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](2);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](2);
         // Step 0 — swap-like: consume USDC, mint a fixed yoUSD output to executor.
         steps[0] = IFortStrategyExecutor.Step({
             adapterId: 0,
@@ -113,8 +108,7 @@ contract FortStrategyExecutorFuzzTest is Test {
 
         _fundAndApprove(user, inputAmount);
 
-        IFortStrategyExecutor.Step[]
-            memory steps = new IFortStrategyExecutor.Step[](1);
+        IFortStrategyExecutor.Step[] memory steps = new IFortStrategyExecutor.Step[](1);
         steps[0] = IFortStrategyExecutor.Step({
             adapterId: 0,
             action: IStrategyAdapter.ActionType.SUPPLY_COLLATERAL,

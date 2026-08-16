@@ -25,46 +25,31 @@ contract SwapStrategyAdapterFuzzTest is Test {
         dex = new MockDex();
 
         SwapStrategyAdapter impl = new SwapStrategyAdapter();
-        ERC1967Proxy proxy = new ERC1967Proxy(
-            address(impl),
-            abi.encodeCall(SwapStrategyAdapter.initialize, (executorAddr, owner))
-        );
+        ERC1967Proxy proxy =
+            new ERC1967Proxy(address(impl), abi.encodeCall(SwapStrategyAdapter.initialize, (executorAddr, owner)));
         adapter = SwapStrategyAdapter(address(proxy));
         adapter.setApprovedDex(address(dex), true);
         adapter.setApprovedSwapSelector(MockDex.swapExact.selector, true);
     }
 
-    function _swapData(
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut
-    ) internal view returns (bytes memory) {
-        bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (
-                address(usdc),
-                amountIn,
-                address(yoUSD),
-                amountOut,
-                address(adapter)
-            )
+    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut)
+        internal
+        view
+        returns (bytes memory)
+    {
+        bytes memory swapCalldata =
+            abi.encodeCall(MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), amountOut, address(adapter)));
+        return abi.encode(
+            address(dex),
+            address(yoUSD),
+            minAmountOut,
+            false, // useFullBalance = false
+            swapCalldata
         );
-        return
-            abi.encode(
-                address(dex),
-                address(yoUSD),
-                minAmountOut,
-                false, // useFullBalance = false
-                swapCalldata
-            );
     }
 
     /// If out >= minOut the swap succeeds and forwards out; otherwise SlippageExceeded.
-    function testFuzz_slippage(
-        uint256 amountIn,
-        uint256 out,
-        uint256 minOut
-    ) public {
+    function testFuzz_slippage(uint256 amountIn, uint256 out, uint256 minOut) public {
         amountIn = bound(amountIn, 1, 1e30);
         out = bound(out, 0, 1e40);
         minOut = bound(minOut, 1, 1e40);
@@ -77,32 +62,15 @@ contract SwapStrategyAdapterFuzzTest is Test {
 
         if (out >= minOut) {
             vm.prank(executorAddr);
-            (address tokenOut, uint256 received) = adapter.execute(
-                IStrategyAdapter.ActionType.SWAP,
-                address(usdc),
-                amountIn,
-                address(0),
-                data
-            );
+            (address tokenOut, uint256 received) =
+                adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
             assertEq(tokenOut, address(yoUSD));
             assertEq(received, out);
             assertEq(yoUSD.balanceOf(executorAddr), out);
         } else {
             vm.prank(executorAddr);
-            vm.expectRevert(
-                abi.encodeWithSelector(
-                    SwapStrategyAdapter.SlippageExceeded.selector,
-                    out,
-                    minOut
-                )
-            );
-            adapter.execute(
-                IStrategyAdapter.ActionType.SWAP,
-                address(usdc),
-                amountIn,
-                address(0),
-                data
-            );
+            vm.expectRevert(abi.encodeWithSelector(SwapStrategyAdapter.SlippageExceeded.selector, out, minOut));
+            adapter.execute(IStrategyAdapter.ActionType.SWAP, address(usdc), amountIn, address(0), data);
         }
     }
 }

@@ -192,5 +192,4 @@ contract FortVaultRebalanceTest is FortVaultTestBase {
         vm.expectRevert(abi.encodeWithSelector(FortVault.SlippageExceeded.selector, amount, type(uint256).max));
         vault.rebalance(entries);
     }
-
 }

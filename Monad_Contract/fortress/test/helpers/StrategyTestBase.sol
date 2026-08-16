@@ -54,25 +54,20 @@ abstract contract StrategyTestBase is Test {
 
         // Executor behind UUPS proxy
         FortStrategyExecutor impl = new FortStrategyExecutor();
-        bytes memory initData = abi.encodeCall(
-            FortStrategyExecutor.initialize,
-            ()
-        );
+        bytes memory initData = abi.encodeCall(FortStrategyExecutor.initialize, ());
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         executor = FortStrategyExecutor(address(proxy));
 
         // Adapters (behind UUPS proxies)
         MorphoStrategyAdapter morphoImpl = new MorphoStrategyAdapter(address(morpho));
         ERC1967Proxy morphoProxy = new ERC1967Proxy(
-            address(morphoImpl),
-            abi.encodeCall(MorphoStrategyAdapter.initialize, (address(executor), owner))
+            address(morphoImpl), abi.encodeCall(MorphoStrategyAdapter.initialize, (address(executor), owner))
         );
         morphoAdapter = MorphoStrategyAdapter(address(morphoProxy));
 
         SwapStrategyAdapter swapImpl = new SwapStrategyAdapter();
         ERC1967Proxy swapProxy = new ERC1967Proxy(
-            address(swapImpl),
-            abi.encodeCall(SwapStrategyAdapter.initialize, (address(executor), owner))
+            address(swapImpl), abi.encodeCall(SwapStrategyAdapter.initialize, (address(executor), owner))
         );
         swapAdapter = SwapStrategyAdapter(address(swapProxy));
 
@@ -95,14 +90,13 @@ abstract contract StrategyTestBase is Test {
 
     /// @notice MarketParams for the USDC/yoUSD market (loanToken=USDC, collateral=yoUSD).
     function _market() internal view returns (IMorphoBlue.MarketParams memory) {
-        return
-            IMorphoBlue.MarketParams({
-                loanToken: address(usdc),
-                collateralToken: address(yoUSD),
-                oracle: address(oracle),
-                irm: address(0),
-                lltv: LLTV
-            });
+        return IMorphoBlue.MarketParams({
+            loanToken: address(usdc),
+            collateralToken: address(yoUSD),
+            oracle: address(oracle),
+            irm: address(0),
+            lltv: LLTV
+        });
     }
 
     /// @notice Mint USDC to `user` and approve the executor to pull it.
@@ -113,28 +107,20 @@ abstract contract StrategyTestBase is Test {
     }
 
     /// @notice Build swap calldata + step data for a USDC->yoUSD swap on the MockDex.
-    function _swapData(
-        uint256 amountIn,
-        uint256 amountOut,
-        uint256 minAmountOut
-    ) internal view returns (bytes memory) {
+    function _swapData(uint256 amountIn, uint256 amountOut, uint256 minAmountOut)
+        internal
+        view
+        returns (bytes memory)
+    {
         bytes memory swapCalldata = abi.encodeCall(
-            MockDex.swapExact,
-            (
-                address(usdc),
-                amountIn,
-                address(yoUSD),
-                amountOut,
-                address(swapAdapter)
-            )
+            MockDex.swapExact, (address(usdc), amountIn, address(yoUSD), amountOut, address(swapAdapter))
         );
-        return
-            abi.encode(
-                address(dex),
-                address(yoUSD),
-                minAmountOut,
-                false, // useFullBalance = false (exact mode)
-                swapCalldata
-            );
+        return abi.encode(
+            address(dex),
+            address(yoUSD),
+            minAmountOut,
+            false, // useFullBalance = false (exact mode)
+            swapCalldata
+        );
     }
 }
