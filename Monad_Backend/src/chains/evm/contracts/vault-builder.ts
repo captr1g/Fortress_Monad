@@ -25,6 +25,7 @@ import type { EvmTransaction, BuildResult } from "../types.js";
 import { PendleVaultService } from "../protocols/pendle/pendle-vault.service.js";
 import { AerodromeVaultService } from "../protocols/aerodrome/aerodrome-vault.service.js";
 import { MIN_OUT_BPS } from "@domains/yield/types/market.js";
+import { withRpcRetry } from "../helper/rpc-retry.js";
 
 export class CalldataBuilder {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,18 +41,30 @@ export class CalldataBuilder {
   }
 
   /// Reads the current deposit fee from the vault (cached per builder instance).
-  /// Returns 0n if the read fails (graceful degradation — slippage slightly tighter).
+  /// Throws on a persistent read failure — see the catch below for why 0 is
+  /// not a safe default.
   private async getDepositFeeBps(): Promise<bigint> {
     if (this.cachedFeeBps !== null) return this.cachedFeeBps;
     try {
-      const fee = (await this.client.readContract({
-        address: this.config.vault,
-        abi: fortVaultFeeAbi,
-        functionName: "depositFeeBps",
-      })) as number;
+      const fee = (await withRpcRetry("FortVault.depositFeeBps", () =>
+        this.client.readContract({
+          address: this.config.vault,
+          abi: fortVaultFeeAbi,
+          functionName: "depositFeeBps",
+        }) as Promise<number>,
+      ));
       this.cachedFeeBps = BigInt(fee);
-    } catch {
-      this.cachedFeeBps = 0n;
+    } catch (err) {
+      // Assuming 0 is NOT safe here. The fee is deducted before the protocol
+      // sees the money, so guessing it low overstates the net amount, which
+      // overstates minSharesOut, which reverts on the vault's slippage check —
+      // the same failure mode as the 1:1 rate guess above.
+      const detail = err instanceof Error ? err.message.split("\n")[0] : String(err);
+      throw new Error(
+        `Couldn't read the vault's deposit fee, so the slippage limits for ` +
+        `this deposit can't be sized safely. This is usually a temporary RPC ` +
+        `problem — try again in a moment. (${detail})`,
+      );
     }
     return this.cachedFeeBps;
   }
@@ -674,24 +687,68 @@ export class CalldataBuilder {
     return this.minSharesOut(protocol, assets);
   }
 
+  /**
+   * Reads a live quote from an ERC-4626 vault, trying the `preview*` function
+   * first and the `convertTo*` equivalent as a second on-chain opinion.
+   *
+   * There is deliberately NO arithmetic fallback. Both of these used to end in
+   * `catch { return (assets * MIN_OUT_BPS) / 10000n }` — a 1:1 share-price
+   * assumption. For any vault whose shares aren't worth exactly one unit of the
+   * underlying that produces a minimum ABOVE what the deposit can return, so
+   * the transaction is guaranteed to revert. It shipped exactly that: a 0.5
+   * USDC deposit into Curvance (share price 1.0101) asked for 497,500 shares
+   * when 494,462 were achievable, and the vault reverted on its slippage check.
+   * The correct value — previewDeposit(500000) * 9950/10000 = 492,525 — passes
+   * with margin. A transient RPC timeout was all it took to trigger it, and the
+   * `catch` hid the reason.
+   *
+   * Failing the plan with a readable error is strictly better than handing the
+   * user a transaction that cannot succeed.
+   */
+  private async previewVaultQuote(
+    protocol: ProtocolEntry,
+    amount: bigint,
+    fns: { preview: "previewDeposit" | "previewRedeem"; convert: "convertToShares" | "convertToAssets" },
+  ): Promise<bigint> {
+    const read = (fn: string) =>
+      withRpcRetry(`${protocol.name}.${fn}`, () =>
+        this.client.readContract({
+          address: protocol.address,
+          abi: erc4626Abi,
+          functionName: fn,
+          args: [amount],
+        }) as Promise<bigint>,
+      );
+
+    try {
+      return await read(fns.preview);
+    } catch (previewErr) {
+      try {
+        return await read(fns.convert);
+      } catch {
+        const detail =
+          previewErr instanceof Error ? previewErr.message.split("\n")[0] : String(previewErr);
+        throw new Error(
+          `Couldn't read a live exchange rate for ${protocol.name} ` +
+          `(${protocol.address}), so the slippage limit for this deposit can't ` +
+          `be sized safely. This is usually a temporary RPC problem — try again ` +
+          `in a moment. (${detail})`,
+        );
+      }
+    }
+  }
+
   // Minimum shares for an ERC-4626 deposit, derived from a live previewDeposit minus slippage.
   private async minSharesOut(
     protocol: ProtocolEntry,
     assets: bigint,
   ): Promise<bigint> {
     if (!protocol.isERC4626 || assets === 0n) return 0n;
-    try {
-      const preview = (await this.client.readContract({
-        address: protocol.address,
-        abi: erc4626Abi,
-        functionName: "previewDeposit",
-        args: [assets],
-      })) as bigint;
-      return (preview * MIN_OUT_BPS) / 10000n;
-    } catch {
-      // Fallback estimation (1:1 with slippage bound) if preview reverts or RPC lacks contract
-      return (assets * MIN_OUT_BPS) / 10000n;
-    }
+    const preview = await this.previewVaultQuote(protocol, assets, {
+      preview: "previewDeposit",
+      convert: "convertToShares",
+    });
+    return (preview * MIN_OUT_BPS) / 10000n;
   }
 
   // Minimum USDC for an ERC-4626 redeem, derived from a live previewRedeem minus slippage.
@@ -700,18 +757,11 @@ export class CalldataBuilder {
     shares: bigint,
   ): Promise<bigint> {
     if (!protocol.isERC4626 || shares === 0n) return 0n;
-    try {
-      const preview = (await this.client.readContract({
-        address: protocol.address,
-        abi: erc4626Abi,
-        functionName: "previewRedeem",
-        args: [shares],
-      })) as bigint;
-      return (preview * MIN_OUT_BPS) / 10000n;
-    } catch {
-      // Fallback estimation (1:1 with slippage bound) if preview reverts or RPC lacks contract
-      return (shares * MIN_OUT_BPS) / 10000n;
-    }
+    const preview = await this.previewVaultQuote(protocol, shares, {
+      preview: "previewRedeem",
+      convert: "convertToAssets",
+    });
+    return (preview * MIN_OUT_BPS) / 10000n;
   }
 
   // Builds the authorization txs the vault needs to pull each source position:
