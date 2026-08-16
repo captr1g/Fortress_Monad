@@ -53,22 +53,25 @@ function waitReady(instance: Redis, timeoutMs: number): Promise<void> {
 async function createClient(url: string): Promise<Redis> {
   const { host, port, password, tls } = parseRedisUrl(url);
 
+  let cluster: Redis | null = null;
   try {
     // Cluster client. Cast: the command surface used by this codebase
     // (get/set/del/incr/expire/quit) is identical on Redis and Redis.Cluster.
-    const cluster = new Redis.Cluster([{ host, port }], {
+    cluster = new Redis.Cluster([{ host, port }], {
       redisOptions: { password, tls },
       scaleReads: "all",
     }) as unknown as Redis;
-    cluster.on("error", (err) => {
-      console.warn(`[redis:cluster] Error: ${(err as Error)?.message ?? err}`);
-    });
-    await waitReady(cluster, CONNECT_TIMEOUT_MS);
+    await waitReady(cluster, 3000);
     console.log(`[redis] Connected to cluster at ${host}:${port}`);
     return cluster;
   } catch (err) {
+    if (cluster) {
+      try {
+        (cluster as unknown as { disconnect: () => void }).disconnect();
+      } catch {}
+    }
     console.warn(
-      `[redis] Cluster connect failed (${(err as Error)?.message ?? err}); falling back to standalone`,
+      `[redis] Cluster connect skipped (${(err as Error)?.message ?? err}); using standalone Redis`,
     );
   }
 
