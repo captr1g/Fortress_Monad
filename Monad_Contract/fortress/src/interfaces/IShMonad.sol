@@ -12,7 +12,7 @@ import "./ILiFi.sol";
 ///
 /// @dev Verified live on chain 143 at the pinned block:
 ///
-///        asset()          0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+///        asset()          MonadAddresses.NATIVE (the 0xEeee sentinel)
 ///        symbol()         "shMON"      decimals() 18
 ///        totalAssets()    382,604,654 MON      totalSupply() 238,364,228 shMON
 ///        maxDeposit()     type(uint128).max — effectively uncapped

@@ -308,12 +308,26 @@ library MonadAddresses {
                               LST — shMONAD
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice FastLane shMONAD. symbol()="shMON", maxDeposit UNCAPPED.
+    /// @notice FastLane shMONAD. symbol()="shMON", decimals 18, maxDeposit UNCAPPED
+    ///         (`type(uint128).max`). $382.6M of MON staked against 238.4M shMON.
+    ///
     /// @dev ERC-4626 shaped, but `asset()` returns the native-MON sentinel
     ///      0xEeee…EEeE, not an ERC-20. FortVault's fast path does
     ///      `IERC20(asset).transferFrom`, which cannot work against a sentinel — so
     ///      this needs a dedicated adapter with a USDC->MON swap leg, NOT the
-    ///      `isERC4626` path.
+    ///      `isERC4626` path. Served by `ShMonadAdapter` from Phase 4 task 13.
+    ///
+    ///      Probed end to end on fork at the pinned block:
+    ///
+    ///        - `deposit(uint256,address)` is **payable** and takes the MON as
+    ///          `msg.value`. Without value it reverts `0x309a6b54`.
+    ///        - `redeem` settles in the SAME transaction. No unbonding queue.
+    ///        - **The exit carries a 64 bps haircut.** `previewRedeem` sat 0.64%
+    ///          below `convertToAssets`, and matched the realised payout exactly.
+    ///          10 MON in returned 9.934694 MON in one transaction.
+    ///
+    ///      Size any exit minimum off `previewRedeem` / `ShMonadAdapter.previewRedeemMon`.
+    ///      Sizing off `convertToAssets` ignores the haircut and will revert.
     address internal constant SHMONAD = 0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c;
 
     /*//////////////////////////////////////////////////////////////

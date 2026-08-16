@@ -229,6 +229,42 @@ Aave's 1000. Recorded so the difference is a choice, not a surprise.
 
 ---
 
+## 5.5 shMONAD (Phase 4 task 13)
+
+| Contract | Address | Verified how |
+|---|---|---|
+| FastLane shMONAD | `0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c` | `id:symbol()="shMON"`, `name()="ShMonad"`, `decimals()=18`, `asset()=0xEeee…EEeE` |
+
+| Property | Value at the pinned block |
+|---|---|
+| `totalAssets()` | 382,604,654 MON |
+| `totalSupply()` | 238,364,228 shMON |
+| `maxDeposit()` | `type(uint128).max` — effectively uncapped |
+| `deposit(uint256,address)` | **payable**; reverts `0x309a6b54` without value |
+| `redeem(uint256,address,address)` | settles in the SAME transaction — no unbonding queue |
+| **Exit haircut** | **64 bps** |
+
+### 5.5.1 The exit haircut is not rounding
+
+Probed end to end on fork:
+
+```
+deposit 10 MON        -> 6.230354074253196791 shMON
+convertToAssets(s)    -> 9.999244998592653001 MON   (raw rate)
+previewRedeem(s)      -> 9.934694246409105820 MON   (what arrives)
+realised redeem       -> 9.934694246409105820 MON   (exact match)
+```
+
+`previewRedeem` matched the realised payout to the wei. **Size any exit minimum off
+`previewRedeem` / `ShMonadAdapter.previewRedeemMon`, never off `convertToAssets`** — the
+latter ignores the haircut and the adapter will revert `SlippageExceeded`. That mistake is
+covered by an executable test on both mocks and fork.
+
+Full adapter path, live shMONAD with a simulated swap leg:
+100 stand-in USDC → 62.303540 shMON → 99.346937 back.
+
+---
+
 ## 6. Infrastructure
 
 | Contract | Address | Verified how |

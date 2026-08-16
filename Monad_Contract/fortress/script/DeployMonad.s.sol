@@ -8,6 +8,7 @@ import "../src/CrossChainRouter.sol";
 import "../src/FortSwapRouter.sol";
 import "../src/adapters/LiFiAdapter.sol";
 import "../src/adapters/AaveV3Adapter.sol";
+import "../src/adapters/ShMonadAdapter.sol";
 import "../src/config/MonadAddresses.sol";
 
 /// @title DeployMonad — full FORTRESS protocol deployment on Monad (chain 143)
@@ -95,6 +96,22 @@ contract DeployMonad is Script {
         console.log("AaveV3Adapter (Neverland) proxy:", address(neverlandProxy));
 
         // ═══════════════════════════════════════════════
+        //  2c. ShMonadAdapter — USDC <-> MON <-> shMON
+        // ═══════════════════════════════════════════════
+        // Routes its MON leg through the LiFiAdapter proxy above rather than
+        // re-implementing route validation, so there is one selector allowlist to
+        // maintain, not two. That also means shMONAD deposits stay closed until the
+        // LiFiAdapter selector allowlist is populated — see step 7.
+        //
+        // The constructor asserts shMONAD.asset() is the native sentinel; if
+        // FastLane ever repoints it at an ERC-20 this deployment fails here.
+        ShMonadAdapter shMonadImpl = new ShMonadAdapter(MonadAddresses.USDC, MonadAddresses.SHMONAD, address(lifiProxy));
+        ERC1967Proxy shMonadProxy = new ERC1967Proxy(
+            address(shMonadImpl), abi.encodeCall(ShMonadAdapter.initialize, (deployer, address(vaultProxy)))
+        );
+        console.log("ShMonadAdapter proxy:", address(shMonadProxy));
+
+        // ═══════════════════════════════════════════════
         //  3. CrossChainRouter (UUPS proxy)
         // ═══════════════════════════════════════════════
         CrossChainRouter ccImpl = new CrossChainRouter(MonadAddresses.USDC, MonadAddresses.LIFI_DIAMOND);
@@ -142,6 +159,15 @@ contract DeployMonad is Script {
         //
         // isERC4626 = false for both: aTokens rebase, and Aave's asset(),
         // totalAssets() and maxDeposit() all revert.
+        // FastLane liquid staking. isERC4626 = false: shMONAD is ERC-4626 shaped but
+        // its asset() is the native-MON sentinel, and its deposit() is payable, so
+        // the fast path's IERC20(asset).transferFrom cannot drive it.
+        //
+        // NOTE FOR CALLERS: the exit carries a real haircut — 64 bps measured live at
+        // the pinned block. Size minMonOut off ShMonadAdapter.previewRedeemMon(),
+        // never off convertToAssets().
+        vault.registerProtocol("shMONAD", address(shMonadProxy), false);
+
         vault.registerProtocol("Aave", address(aaveProxy), false);
         vault.registerProtocol("Neverland", address(neverlandProxy), false);
 
@@ -189,6 +215,7 @@ contract DeployMonad is Script {
         console.log("--------- Deployment Complete ---------");
         console.log("FortVault (proxy)       :", address(vaultProxy));
         console.log("LiFiAdapter (proxy)     :", address(lifiProxy));
+        console.log("ShMonadAdapter          :", address(shMonadProxy));
         console.log("AaveV3Adapter Aave      :", address(aaveProxy));
         console.log("AaveV3Adapter Neverland :", address(neverlandProxy));
         console.log("CrossChainRouter (proxy):", address(ccProxy));

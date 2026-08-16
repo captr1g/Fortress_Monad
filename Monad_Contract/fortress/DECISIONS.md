@@ -231,3 +231,50 @@ will allow.
 failure into an attributable `ProtocolAtCapacity`, and within a rounding-scale band of the
 cap Aave's own check still backstops it. On the live reserves the gap is immaterial: Aave's
 Monad USDC market carried ~38k of accrued treasury against ~109.9M of headroom.
+
+### D4-11 — `ShMonadAdapter` reuses `LiFiAdapter` for its MON leg
+**Status:** accepted (Phase 4 task 13)
+**Context:** shMONAD is ERC-4626 shaped but its `asset()` is the native-MON sentinel and
+its `deposit` is **payable**. `FortVault`'s `isERC4626` fast path does
+`IERC20(asset).transferFrom`, which cannot work against a sentinel, so the venue needs an
+adapter with a USDC↔MON swap leg on both sides.
+**Decision:** the swap leg calls `LiFiAdapter.swap` rather than talking to the LI.FI
+diamond directly. Everything I5 and I8 require — the DEX address allowlist, the per-leg
+selector allowlist, the route end-asset checks, the balance-delta verification, the
+deadline — already lives in `LiFiAdapter` and is enforced on the nested call. A second
+copy would be a second allowlist to keep in step, and it would drift.
+**Consequence, stated plainly:** shMONAD deposits stay closed until the `LiFiAdapter`
+selector allowlist is populated (D4-3). One gate, not two.
+**Dependency closed:** this is the caller D4-1 was written for. The `ERC20→native` and
+`native→ERC20` GenericSwapFacetV3 variants exist because shMONAD needs them.
+
+### D4-12 — shMONAD's exit haircut is real; quote `previewRedeem`, never `convertToAssets`
+**Status:** accepted (measured, not assumed)
+**Evidence:** probed end to end on fork at the pinned block. `deposit(uint256,address)` is
+payable and reverts `0x309a6b54` without value. `redeem` settles in the SAME transaction —
+there is no unbonding queue. But the exit is not free:
+
+    convertToAssets(shares)   9.999245 MON      (raw exchange rate)
+    previewRedeem(shares)     9.934694 MON      (what actually arrives)
+    realised                  9.934694 MON      (exact match)
+
+That is a **64 bps discount on the way out**, and a 0.653% round-trip loss on 10 MON.
+Confirmed again through the full adapter path: 100 stand-in USDC → 62.303540 shMON →
+99.346937 back.
+**Decision:** the adapter exposes `previewRedeemMon`, and both the interface and the deploy
+script tell callers to size `minMonOut` off it. Sizing off `convertToAssets` ignores the
+haircut and reverts — asserted as an executable test, on mocks and on fork, rather than
+left as a comment.
+**Slippage is per leg, not end to end:** a single end-to-end minimum would let a bad swap
+hide behind a good exchange rate, or the reverse. The MON leg and the token leg each carry
+their own caller-supplied floor.
+
+### D4-13 — The adapter is not a wallet: native MON is accepted from two addresses only
+**Status:** accepted
+**Context:** `ShMonadAdapter` handles three assets (USDC, native MON, shMON) across two
+legs, so it must be able to receive MON mid-transaction.
+**Decision:** `receive()` accepts only from shMONAD (redemption proceeds) and from the
+swap adapter (an `ERC20→native` leg, or an unspent-input refund). Anything else reverts
+`UnexpectedNative`. Unattributed MON would be indistinguishable from a leg's proceeds and
+could be swept into the next caller's position. Every path ends in `_sweepAll`, returning
+leftover USDC, MON and shMON to whoever supplied them (I1).

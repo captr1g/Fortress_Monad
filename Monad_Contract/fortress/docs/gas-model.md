@@ -273,6 +273,30 @@ reads is not a rounding error.
 test, so the reserve slots are already warm — it is not a like-for-like comparison, and
 the envelope is set from that warm measurement.
 
+### 7.3 `ShMonadAdapter` envelopes (Phase 4 task 13)
+
+Asserted in `test/gas/ShMonadAdapter.gas.t.sol`. Measured:
+
+| Entry point | Measured | Envelope |
+|---|---|---|
+| `depositFor` (USDC→MON→shMON) | 556,333 | 630,000 |
+| `redeemFor` (shMON→MON→USDC) | 179,645 | 205,000 |
+
+**This is the most expensive adapter in the codebase, structurally.** Every path
+crosses three contracts — the adapter, `LiFiAdapter`, shMONAD — and three assets
+(USDC, native MON, shMON). `depositFor` costs 2.3x `AaveV3Adapter`'s. A caller sizing
+a gas limit off a single-venue adapter's numbers will run out here.
+
+`redeemFor` reads far cheaper only because it runs after a deposit in the same test,
+so all three contracts are warm. It is not a like-for-like comparison with the deposit
+figure, and the envelope is set from that warm measurement.
+
+`test_gas_nestedSwapOverhead` records the shape rather than a subtractable overhead:
+the second call in it runs warm and therefore measures *lower* than the first despite
+doing strictly more work. On a chain pricing cold SLOAD at ~8,100, warm-versus-cold
+dominates any structural difference, which is why every envelope above is taken cold
+in its own test.
+
 ---
 
 ## 8. Outstanding
