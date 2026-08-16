@@ -5,7 +5,9 @@
 `network = "monad"`.
 
 State at submission: **Phases 0–4 complete** (Phase 4 task 14 skipped by operator
-instruction). Phases 5–9 not started — see [What is NOT done](#what-is-not-done).
+instruction). **Phase 6 skipped** by operator instruction. **Phases 7–9 partially
+delivered** — written and tested, but not exercised against a live deployment (§9).
+**Phase 5 not started.** See [What is NOT done](#6-what-is-not-done-and-what-blocks-it).
 
 ```
 632 tests pass, 0 fail          (unit + fuzz + invariant + gas)
@@ -153,7 +155,10 @@ through `LiFiAdapter` by design, so there is one allowlist to maintain rather th
 
 ## 6. What is NOT done, and what blocks it
 
-**Phases 5–9 are not started.** Realistic remaining effort: **10–15 hours.**
+**Phase 5 is not started. Phase 6 was skipped by instruction. Phases 7–9 are written and
+tested but never run against a live deployment** — see §9 for exactly what that means.
+
+Realistic remaining effort: **6–10 hours**, most of it Phase 5 and a real audit pass.
 
 Two items have been open since Phase 0 and need the operator, not the implementer:
 
