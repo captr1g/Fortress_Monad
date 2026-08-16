@@ -155,3 +155,79 @@ is not registered. All six V3 selectors → `LIFI_GENERIC_SWAP_FACET_V3`.
 **Decision:** the central claim of D0-5 is a fact about a deployed selector table, so it
 is asserted against that table. If LI.FI re-adds the v1 facet or moves the V3 one, CI
 fails loudly instead of the adapter failing quietly in production.
+
+### D4-6 — Aave V3 and Neverland integrated, under explicit instruction
+**Status:** accepted (operator instruction, Phase 4 task 12)
+**Context:** the port deliberately shipped with no Aave integration. Port prompt §3.4
+requires an explicit instruction before integrating a protocol that merely exists on the
+chain, and `RESEARCH.md` §10.3 listed `aave_v3` and `neverland` as "context only — NOT
+permission to integrate". The operator gave that instruction.
+**Decision:** one `AaveV3Adapter` (`IFortProtocol`, vault-side) serves both markets,
+registered under the registry keys `"Aave"` and `"Neverland"` with `isERC4626 = false`.
+**It does not fill a reserved adapter slot.** `PENDING.md` ids 3/4/5 stay empty and the
+prohibition on substituting Aave for Compound V3 / Aerodrome / YO still stands — this
+adapter takes no `adapterId` at all.
+**Why it matters:** Aave V3 Monad is the largest USABLE USDC venue on the chain —
+~$141.7M supplied against a 250M cap, leaving **109.9M of live capacity** measured on
+fork, against Euler's ~6.6M and a Morpho V2 tier that is entirely at cap. Supply APR
+3.07%.
+**Neverland caveat:** same codebase, ~87.4M of headroom, but a **4000 bps reserve
+factor** against Aave's 1000 — 40% of interest goes to its treasury, and the supply APR
+is 1.91%. Registered so the operator can choose it, not because it is better.
+
+### D4-7 — Two implementation deployments, not one shared implementation
+**Status:** accepted
+**Evidence:** `pool` and `aToken` are `immutable`, so they live in bytecode rather than
+storage. The alternative — one implementation with the pool in storage, two proxies —
+adds a cold SLOAD to every deposit and withdraw, and Monad prices a cold SLOAD at ~8,100
+gas (D0-3).
+**Decision:** deploy the implementation twice, once per market. The constructor proves
+its own wiring on chain — it reads the aToken's `POOL()` and `UNDERLYING_ASSET_ADDRESS()`
+and reverts `WiringMismatch` if the triple disagrees — so crossing the two markets is not
+a deployable state. Asserted on fork in `test_fork_crossedWiring_reverts`.
+
+### D4-8 — Read reserve state from the Pool's config bitmap, not the data provider
+**Status:** accepted
+**Evidence:** the two markets are **different Aave revisions**. Verified live:
+`Aave V3 Monad` reports `POOL_REVISION() == 11`, `Neverland Market V3` reports `2`. The
+`getReserveData` struct moved across that gap — v3.2 removed stable-rate borrowing, and
+the markets disagree accordingly (Aave returns `address(0)` for the stable debt token,
+Neverland returns a real one). Decoding it against one struct definition would silently
+misread one of the two markets.
+**Decision:** `IAaveV3Pool` declares only `supply`, `withdraw`, `getConfiguration` and
+`getReserveNormalizedIncome` — the functions verified identical on both. Reserve state is
+decoded from the configuration bitmap by `LibAaveReserve`. The claim that the bit layout
+matches on both revisions is **asserted per market** in
+`test_fork_configBitmapMatchesDataProvider`, which decodes the bitmap and compares every
+field against that market's own data provider.
+**Also:** the data provider is recorded for provenance but never called from `src/` — in
+Aave V3 it is a plain contract that is REPLACED on upgrade, unlike the Pool and aToken
+proxies.
+
+### D4-9 — The scaled-balance rounding tolerance must scale with the liquidity index
+**Status:** accepted (bug caught by fuzzing, before it shipped)
+**Evidence:** Aave stores `amount.rayDiv(index)` and reports `scaled.rayMul(index)`. Both
+round half-up, so a round trip lands within `0.5 × index/RAY + 0.5` units of `amount` —
+an error that **grows with the index**, not a fixed 1 unit. The first implementation used
+a hard-coded 1-unit tolerance. It passes at today's indices (Aave Monad 1.004 ray,
+Neverland 1.023) and would begin reverting good deposits once an index passed ~2 ray.
+`testFuzz_depositFor_anyIndex` found it at a 10-ray index: a 999,999-USDC supply came back
+3 units light and reverted `SupplyCreditShortfall`.
+**Decision:** derive the tolerance per call as
+`getReserveNormalizedIncome(asset) / RAY + 1`, which covers both halves of the bound.
+Applied to the supply credit check and the withdraw shortfall check alike.
+**Note:** this is a liveness check on the credit — it catches a pool that takes the
+underlying without crediting the position — not an accounting reconciliation.
+
+### D4-10 — The supply-cap guard is approximate at the boundary, deliberately
+**Status:** accepted, with the limitation recorded rather than hidden
+**Evidence:** Aave compares
+`scaledTotalSupply.rayMul(nextLiquidityIndex) + accruedToTreasury + amount` against the
+cap. The adapter reads `aToken.totalSupply()`, which is the same product at the CURRENT
+index and excludes `accruedToTreasury`, so it can report slightly MORE headroom than Aave
+will allow.
+**Decision:** accept the gap. Reproducing Aave's arithmetic exactly needs the
+`ReserveData` struct that D4-8 rules out. The guard converts the overwhelmingly common cap
+failure into an attributable `ProtocolAtCapacity`, and within a rounding-scale band of the
+cap Aave's own check still backstops it. On the live reserves the gap is immaterial: Aave's
+Monad USDC market carried ~38k of accrued treasury against ~109.9M of headroom.

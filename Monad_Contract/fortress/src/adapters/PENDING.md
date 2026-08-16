@@ -45,6 +45,13 @@ adapters by `uint8`. The Base deployment assigned:
 | **`5`** | *(reserved — YO replacement)* | **EMPTY, awaiting operator** |
 | `6`–`255` | free | unassigned |
 
+> **Phase 4 task 12 note.** `AaveV3Adapter` was added under explicit operator
+> instruction and did **not** fill a reserved slot. It is an `IFortProtocol`
+> vault-side adapter registered under its own registry keys — `"Aave"` and
+> `"Neverland"` — and takes no `adapterId` at all. Ids `3`, `4` and `5` remain
+> empty, and the prohibition above still stands: Aave is not a substitute for
+> Compound V3, Aerodrome or YO.
+
 IDs `3`, `4` and `5` **must not be assigned to anything else.** Deployment scripts set
 these entries to `address(0)` with a `// OPERATOR TO SUPPLY` comment, and
 `VerifyDeployment.s.sol` (Phase 9) must assert that no reserved-but-unfilled slot is

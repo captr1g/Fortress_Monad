@@ -244,12 +244,47 @@ library MonadAddresses {
                     LENDING (adapter required, not ERC-4626)
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Aave V3 aMonUSDC. NOT ERC-4626 — asset(), totalAssets() and
-    ///         maxDeposit() all revert. aTokens rebase; they need a real adapter.
+    //
+    // Integrated in Phase 4 task 12 under explicit operator instruction (port
+    // prompt §3.4). `AaveV3Adapter` serves both markets — one implementation, two
+    // deployments, differing only in the (pool, aToken) pair below.
+    //
+    // The two markets are NOT the same Aave revision. Verified live:
+    //     Aave V3 Monad        POOL_REVISION() = 11   (v3.2+, no stable debt token)
+    //     Neverland Market V3  POOL_REVISION() = 2    (v3.0.x, stable debt present)
+    // `supply`, `withdraw` and `getConfiguration` behave identically on both;
+    // `getReserveData`'s struct does not. See `src/interfaces/IAaveV3Pool.sol`.
+
+    /// @notice Aave V3 Pool proxy. `getMarketId()` = "Aave V3 Monad".
+    /// @dev Cross-confirmed two ways: `AAVE_V3_A_USDC.POOL()` returns this, and
+    ///      `AAVE_V3_POOL_ADDRESSES_PROVIDER.getPool()` returns this.
+    address internal constant AAVE_V3_POOL = 0x69a5F9AD4f96ebf0a0C792dD42a01cC5C0102fef;
+
+    /// @notice Aave V3 PoolAddressesProvider. `AAVE_V3_POOL.ADDRESSES_PROVIDER()`
+    ///         returns this, closing the loop.
+    address internal constant AAVE_V3_POOL_ADDRESSES_PROVIDER = 0x34793Fb9935F7bB5E5aE920fb963F39063E7A615;
+
+    /// @notice Aave V3 aMonUSDC. symbol()="aMonUSDC", decimals()=6,
+    ///         UNDERLYING_ASSET_ADDRESS()=USDC.
+    /// @dev NOT ERC-4626 — asset(), totalAssets() and maxDeposit() all revert.
+    ///      aTokens rebase, so `FortVault`'s isERC4626 fast path cannot drive this.
+    ///
+    ///      THE LARGEST USABLE USDC VENUE ON MONAD. $141.7M supplied against a
+    ///      250M supply cap — ~108M of open capacity, versus Euler's ~6.6M and a
+    ///      Morpho V2 tier that is entirely at cap. Supply APR 3.07% at Phase 4.
     address internal constant AAVE_V3_A_USDC = 0x35a73BAcb179d3740395A3ceCc87FF2e581d6042;
 
     /// @notice Aave V3 Protocol Data Provider on Monad.
+    /// @dev Recorded for provenance only. The adapter does NOT call it: in Aave V3
+    ///      the data provider is a plain contract that is REPLACED on upgrade,
+    ///      unlike the Pool and aToken proxies. Reserve state is read from the
+    ///      Pool's own configuration bitmap instead.
     address internal constant AAVE_V3_DATA_PROVIDER = 0xB65A68B98274ef7D9a60E0C0747dD1BEc3D32fad;
+
+    /// @notice Neverland Pool proxy. `getMarketId()` = "Neverland Market V3".
+    /// @dev `NEVERLAND_A_USDC.POOL()` returns this, and the Pool's
+    ///      `ADDRESSES_PROVIDER()` returns NEVERLAND_POOL_ADDRESSES_PROVIDER.
+    address internal constant NEVERLAND_POOL = 0x80F00661b13CC5F6ccd3885bE7b4C9c67545D585;
 
     /// @notice Neverland PoolAddressesProvider.
     /// @dev Neverland is an Aave V3 FORK — identical ACLManager /
@@ -257,7 +292,16 @@ library MonadAddresses {
     ///      adapter therefore serves both venues; only the pool address differs.
     address internal constant NEVERLAND_POOL_ADDRESSES_PROVIDER = 0x49D75170F55C964dfdd6726c74fdEDEe75553A0f;
 
+    /// @notice Neverland aToken for USDC. symbol()="nUSDC", decimals()=6,
+    ///         UNDERLYING_ASSET_ADDRESS()=USDC.
+    /// @dev $2.72M supplied against a 90M cap. Supply APR 1.91%, and note the
+    ///      reserve factor is 4000 bps — 40% of interest goes to the Neverland
+    ///      treasury, against Aave's 1000 bps. Materially worse yield for the same
+    ///      asset; registered so the operator can choose, not because it is better.
+    address internal constant NEVERLAND_A_USDC = 0x38648958836eA88b368b4ac23b86Ad44B0fe7508;
+
     /// @notice Neverland PoolDataProvider.
+    /// @dev Provenance only — see the note on AAVE_V3_DATA_PROVIDER.
     address internal constant NEVERLAND_DATA_PROVIDER = 0xfd0b6b6F736376F7B99ee989c749007c7757fDba;
 
     /*//////////////////////////////////////////////////////////////

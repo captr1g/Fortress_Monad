@@ -251,6 +251,28 @@ Note how much of the cost is cold state: re-running `depositFor` warm on the sam
 adapter measures ~124k against ~400k cold. On a chain that prices cold SLOAD at ~8,100
 that gap is the dominant term, which is why every number above is taken cold.
 
+### 7.2 `AaveV3Adapter` envelopes (Phase 4 task 12)
+
+Asserted in `test/gas/AaveV3Adapter.gas.t.sol`, same conditions (`network = "monad"`,
+cold, mock pool). Measured:
+
+| Entry point | Measured | Envelope |
+|---|---|---|
+| `depositFor` | 244,997 | 277,000 |
+| `redeemFor` | 108,814 | 123,000 |
+| `availableCapacity` (view) | 65,555 | 75,000 |
+
+The reserve-state pre-check — one `getConfiguration` plus one `aToken.totalSupply()` —
+costs **~56,300 gas cold**, roughly 28% of a deposit. That buys attributable reverts:
+`ReserveNotActive`, `ReserveFrozen`, `ReservePaused` and `ProtocolAtCapacity` instead of
+Aave's numeric error strings (`'2'`, `'28'`, `'51'`) surfacing anonymously through the
+vault. It is priced here rather than assumed free, because on Monad two cold external
+reads is not a rounding error.
+
+`redeemFor` is cheaper than `depositFor` because it runs after a supply in the same
+test, so the reserve slots are already warm — it is not a like-for-like comparison, and
+the envelope is set from that warm measurement.
+
 ---
 
 ## 8. Outstanding

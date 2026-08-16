@@ -383,6 +383,13 @@ Registry confirms `aave_v3`, `euler`, `curvance`, `gearbox_protocol`, `neverland
 `hyperlane_nexus`, `mayan`, `gas_zip` and others are present. Integrating any of them
 requires explicit operator instruction.
 
+> **Update (Phase 4 task 12):** that instruction was given for `aave_v3` and
+> `neverland`. Both are now integrated via `AaveV3Adapter` under the registry keys
+> `"Aave"` and `"Neverland"` — see `DECISIONS.md` D4-6. Every other entry in this list
+> remains context only. Note what the integration surfaced: Aave V3 Monad holds
+> ~109.9M of open USDC capacity, which makes it the largest venue FORTRESS can
+> actually deposit into on this chain by more than an order of magnitude.
+
 ---
 
 ## 11. UNVERIFIED

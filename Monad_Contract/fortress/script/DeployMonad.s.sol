@@ -7,6 +7,7 @@ import "../src/FortVault.sol";
 import "../src/CrossChainRouter.sol";
 import "../src/FortSwapRouter.sol";
 import "../src/adapters/LiFiAdapter.sol";
+import "../src/adapters/AaveV3Adapter.sol";
 import "../src/config/MonadAddresses.sol";
 
 /// @title DeployMonad — full FORTRESS protocol deployment on Monad (chain 143)
@@ -15,9 +16,11 @@ import "../src/config/MonadAddresses.sol";
 ///
 /// @dev Divergences from the Base deployment, all forced by Monad reality:
 ///
-///      1. The `"Aave"` registry key is GONE. FORTRESS does not integrate Aave on
-///         Monad. Aave V3 exists on Monad but integrating it needs explicit
-///         operator instruction (port prompt §3.4).
+///      1. The `"Aave"` registry key is BACK, and `"Neverland"` joins it (Phase 4
+///         task 12). Both were added under explicit operator instruction, which is
+///         what port prompt §3.4 requires before integrating a protocol that
+///         merely exists on the chain. One `AaveV3Adapter` implementation serves
+///         both markets; they differ only in their (pool, aToken) pair.
 ///      2. The `"Morpho"` key now points at the MetaMorpho **hyperUSDCa** vault,
 ///         whose `asset()` is USDC — verified on-chain. The Base target
 ///         (Moonwell USDC) has no code on Monad.
@@ -67,6 +70,31 @@ contract DeployMonad is Script {
         console.log("LiFiAdapter proxy:", address(lifiProxy));
 
         // ═══════════════════════════════════════════════
+        //  2b. AaveV3Adapter x2 — Aave V3 Monad and Neverland
+        // ═══════════════════════════════════════════════
+        // Two implementation deployments, not one shared implementation: `pool` and
+        // `aToken` are immutables, which keeps them out of storage and off the hot
+        // path. On Monad a cold SLOAD is ~8,100 gas, so putting the pool in storage
+        // would tax every deposit and withdraw for the life of the deployment.
+        //
+        // Each constructor proves its own wiring on chain — it reads the aToken's
+        // POOL() and UNDERLYING_ASSET_ADDRESS() and reverts WiringMismatch if the
+        // triple disagrees. Crossing the two markets cannot be deployed.
+        AaveV3Adapter aaveImpl =
+            new AaveV3Adapter(MonadAddresses.USDC, MonadAddresses.AAVE_V3_POOL, MonadAddresses.AAVE_V3_A_USDC);
+        ERC1967Proxy aaveProxy = new ERC1967Proxy(
+            address(aaveImpl), abi.encodeCall(AaveV3Adapter.initialize, (deployer, address(vaultProxy)))
+        );
+        console.log("AaveV3Adapter (Aave) proxy:", address(aaveProxy));
+
+        AaveV3Adapter neverlandImpl =
+            new AaveV3Adapter(MonadAddresses.USDC, MonadAddresses.NEVERLAND_POOL, MonadAddresses.NEVERLAND_A_USDC);
+        ERC1967Proxy neverlandProxy = new ERC1967Proxy(
+            address(neverlandImpl), abi.encodeCall(AaveV3Adapter.initialize, (deployer, address(vaultProxy)))
+        );
+        console.log("AaveV3Adapter (Neverland) proxy:", address(neverlandProxy));
+
+        // ═══════════════════════════════════════════════
         //  3. CrossChainRouter (UUPS proxy)
         // ═══════════════════════════════════════════════
         CrossChainRouter ccImpl = new CrossChainRouter(MonadAddresses.USDC, MonadAddresses.LIFI_DIAMOND);
@@ -102,6 +130,20 @@ contract DeployMonad is Script {
         vault.registerProtocol("Euler", MonadAddresses.EULER_EVAULT_USDC, true);
 
         vault.registerProtocol("LiFi", address(lifiAdapter), false);
+
+        // Aave V3 Monad: the largest USABLE USDC venue on the chain. ~$141.7M
+        // supplied against a 250M cap, so ~108M of open capacity — against Euler's
+        // ~6.6M and a Morpho V2 tier that is entirely at cap. Supply APR 3.07%.
+        //
+        // Neverland is the same Aave V3 codebase at an older revision, with ~87M of
+        // headroom but a 4000 bps reserve factor against Aave's 1000 — 40% of the
+        // interest goes to its treasury, and the supply APR is 1.91%. Registered so
+        // the operator can choose it, not because it is the better venue.
+        //
+        // isERC4626 = false for both: aTokens rebase, and Aave's asset(),
+        // totalAssets() and maxDeposit() all revert.
+        vault.registerProtocol("Aave", address(aaveProxy), false);
+        vault.registerProtocol("Neverland", address(neverlandProxy), false);
 
         // ═══════════════════════════════════════════════
         //  6. DEX address allowlist (I5, first half)
@@ -147,6 +189,8 @@ contract DeployMonad is Script {
         console.log("--------- Deployment Complete ---------");
         console.log("FortVault (proxy)       :", address(vaultProxy));
         console.log("LiFiAdapter (proxy)     :", address(lifiProxy));
+        console.log("AaveV3Adapter Aave      :", address(aaveProxy));
+        console.log("AaveV3Adapter Neverland :", address(neverlandProxy));
         console.log("CrossChainRouter (proxy):", address(ccProxy));
         console.log("FortSwapRouter (proxy)  :", address(swapProxy));
         console.log("---------------------------------------");

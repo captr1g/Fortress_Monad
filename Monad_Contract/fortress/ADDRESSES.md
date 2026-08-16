@@ -180,6 +180,55 @@ D4-4.
 
 ---
 
+## 5.4 Aave V3 and Neverland (Phase 4 task 12)
+
+Integrated under explicit operator instruction. §10.3 of `RESEARCH.md` listed both as
+"context only — NOT permission to integrate"; that instruction was given.
+
+| Contract | Address | Verified how |
+|---|---|---|
+| **Aave V3 Pool** | `0x69a5F9AD4f96ebf0a0C792dD42a01cC5C0102fef` | `id:getMarketId()="Aave V3 Monad"`; returned by `AAVE_V3_A_USDC.POOL()`; returned by the provider's `getPool()`; its own `ADDRESSES_PROVIDER()` points back |
+| Aave V3 PoolAddressesProvider | `0x34793Fb9935F7bB5E5aE920fb963F39063E7A615` | `id:getPool()` closes the loop above |
+| Aave V3 aMonUSDC | `0x35a73BAcb179d3740395A3ceCc87FF2e581d6042` | `id:symbol()="aMonUSDC"`, `decimals()=6`, `UNDERLYING_ASSET_ADDRESS()=USDC` |
+| Aave V3 PoolDataProvider | `0xB65A68B98274ef7D9a60E0C0747dD1BEc3D32fad` | `id:ADDRESSES_PROVIDER()` matches. **Provenance only — never called from `src/`** |
+| **Neverland Pool** | `0x80F00661b13CC5F6ccd3885bE7b4C9c67545D585` | `id:getMarketId()="Neverland Market V3"`; `NEVERLAND_A_USDC.POOL()` returns this |
+| Neverland PoolAddressesProvider | `0x49D75170F55C964dfdd6726c74fdEDEe75553A0f` | `id:getPool()` closes the loop |
+| Neverland nUSDC | `0x38648958836eA88b368b4ac23b86Ad44B0fe7508` | `id:symbol()="nUSDC"`, `decimals()=6`, `UNDERLYING_ASSET_ADDRESS()=USDC` |
+| Neverland PoolDataProvider | `0xfd0b6b6F736376F7B99ee989c749007c7757fDba` | `id:ADDRESSES_PROVIDER()` matches. Provenance only |
+
+### 5.4.1 The two markets are DIFFERENT Aave revisions
+
+| Market | `POOL_REVISION()` | Stable debt token for USDC |
+|---|---|---|
+| Aave V3 Monad | `11` | `0x0` — removed in v3.2 |
+| Neverland Market V3 | `2` | `0x7491E87eed26418ff67422169a7608E67d691978` |
+
+`supply`, `withdraw`, `getConfiguration` and `getReserveNormalizedIncome` behave
+identically on both. `getReserveData`'s struct does **not** — see `DECISIONS.md` D4-8.
+The adapter therefore reads reserve state from the Pool's packed configuration bitmap,
+and `test_fork_configBitmapMatchesDataProvider` asserts, per market, that every bit it
+reads agrees with that market's own data provider.
+
+### 5.4.2 Live reserve state (measured on fork at the pinned block)
+
+| | Aave V3 Monad | Neverland |
+|---|---|---|
+| Supplied | $141.7M | $2.72M |
+| Supply cap | 250M | 90M |
+| **Open capacity** | **109,880,713.69** | **87,356,286.44** |
+| Supply APR | 3.07% | 1.91% |
+| Reserve factor | 1000 bps | **4000 bps** |
+| active / frozen / paused | true / false / false | true / false / false |
+
+Aave V3 Monad is **the largest usable USDC venue on the chain** — Euler's two eVaults
+offer ~6.6M and ~36M of headroom, and the entire Morpho V2 tier is at cap. A 1M USDC
+position accrued 29,783.56 USDC over a simulated year on fork.
+
+Neverland's 4000 bps reserve factor sends 40% of interest to its treasury, against
+Aave's 1000. Recorded so the difference is a choice, not a surprise.
+
+---
+
 ## 6. Infrastructure
 
 | Contract | Address | Verified how |
