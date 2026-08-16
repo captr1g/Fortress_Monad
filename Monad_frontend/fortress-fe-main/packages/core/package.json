@@ -1,0 +1,24 @@
+{
+  "name": "@fortress/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./index.ts",
+    "./schemas": "./schemas/index.ts",
+    "./types": "./types/index.ts",
+    "./api": "./api/index.ts",
+    "./hooks": "./hooks/index.ts",
+    "./hooks/portfolio": "./hooks/portfolio/index.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "peerDependencies": {
+    "react": "^19",
+    "@tanstack/react-query": "^5",
+    "@reown/appkit": "^1.8.21",
+    "viem": "^2.53.1",
+    "wagmi": "^2.19.5"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "fortress",
+  "private": true,
+  "version": "0.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "web": "npm run dev -w web"
+  },
+  "devDependencies": {
+    "turbo": "^2"
+  },
+  "overrides": {
+    "@walletconnect/universal-provider": "2.21.10",
+    "viem": "2.x",
+    "valtio": "2.1.8"
+  },
+  "packageManager": "npm@11.12.1"
+}

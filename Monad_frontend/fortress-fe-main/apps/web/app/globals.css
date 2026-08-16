@@ -1,0 +1,221 @@
+@import "tailwindcss";
+
+@theme {
+  --color-base: #0a0a0b;
+  --color-surface: #131316;
+  --color-surface-2: #0e0e11;
+  --color-elevated: #17181c;
+  --color-line: #1f1f24;
+  --color-line-soft: #161619;
+
+  --color-fg: #fafafa;
+  --color-fg-soft: #e9e9ec;
+  --color-muted: #8a8a93;
+  --color-faint: #5e5e66;
+  --color-ink: #0a0a0b;
+
+  --color-green: #10b981;
+  --color-green-bright: #34d399;
+  --color-gold: #facc15;
+  --color-amber: #f59e0b;
+  --color-red: #ef4444;
+  --color-red-soft: #f87171;
+  --color-blue: #3b82f6;
+  --color-blue-bright: #60a5fa;
+
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background: var(--color-base);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--color-green) 30%, transparent);
+  }
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Brand gradient text — the one place gradient is allowed besides the aurora. */
+.text-gradient-brand {
+  background: linear-gradient(120deg, var(--color-green), var(--color-gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Rich prompt editor + inline Smart Action chips */
+.fx-editor {
+  min-height: 96px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.fx-editor[data-empty="true"]::before {
+  content: attr(data-placeholder);
+  color: var(--color-faint);
+  pointer-events: none;
+}
+/* Chips read as normal prompt text at rest, then morph into a pill on hover. */
+.fx-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  vertical-align: baseline;
+  margin: 0 1px;
+  padding: 1px 5px;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-fg-soft);
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: nowrap;
+  user-select: none;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+.fx-chip:hover {
+  background: color-mix(in oklab, var(--color-green) 12%, transparent);
+  border-color: color-mix(in oklab, var(--color-green) 30%, transparent);
+}
+.fx-chip-edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: var(--color-faint);
+  font-size: 10px;
+  cursor: pointer;
+  transition:
+    color 0.18s ease,
+    background 0.18s ease;
+}
+.fx-chip:hover .fx-chip-edit {
+  color: var(--color-muted);
+}
+.fx-chip-edit:hover {
+  background: color-mix(in oklab, var(--color-green) 22%, transparent);
+  color: var(--color-fg);
+}
+
+.fx-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+.fx-scroll::-webkit-scrollbar-thumb {
+  background: #26262c;
+  border-radius: 4px;
+}
+.fx-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes fdrift1 {
+  0%, 100% { transform: translate(-4%, -6%); }
+  50% { transform: translate(10%, 8%); }
+}
+@keyframes fdrift2 {
+  0%, 100% { transform: translate(6%, 8%); }
+  50% { transform: translate(-8%, -6%); }
+}
+@keyframes fspin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fghost {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+@keyframes ffadein {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* One-shot golden glow that traces a button's border (starting-token button). */
+@property --tok-ang {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes tok-ring {
+  0% { opacity: 0; --tok-ang: 0deg; }
+  12% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { opacity: 0; --tok-ang: 360deg; }
+}
+.token-glow { position: relative; }
+.token-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: conic-gradient(from var(--tok-ang), transparent 0 68%, var(--color-gold) 84%, #fff1a8 90%, transparent 100%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: tok-ring 1.4s ease-out 0.5s 1 both;
+}
+
+/* Subtle ambient aurora wash (very low opacity, slow drift). */
+@keyframes fdrift3 {
+  0%, 100% { transform: translate(-3%, 4%); }
+  50% { transform: translate(6%, -5%); }
+}
+
+/* Flowing aurora — large blurred color fields that translate, rotate and scale. */
+@keyframes faurora1 {
+  0%, 100% { transform: translate(-18%, -8%) rotate(-8deg) scale(1); }
+  33% { transform: translate(12%, 14%) rotate(8deg) scale(1.28); }
+  66% { transform: translate(26%, -6%) rotate(-4deg) scale(1.08); }
+}
+@keyframes faurora2 {
+  0%, 100% { transform: translate(18%, 16%) rotate(10deg) scale(1.1); }
+  50% { transform: translate(-16%, -12%) rotate(-12deg) scale(0.9); }
+}
+@keyframes faurora3 {
+  0%, 100% { transform: translate(2%, 28%) rotate(0deg) scale(1); }
+  50% { transform: translate(-24%, -16%) rotate(14deg) scale(1.32); }
+}
+
+/* Soft equalizer / spectrum bars (blurred into an ambient pulsing band). */
+@keyframes feq1 { 0%, 100% { transform: scaleY(0.35); } 50% { transform: scaleY(1); } }
+@keyframes feq2 { 0%, 100% { transform: scaleY(0.55); } 40% { transform: scaleY(0.9); } 70% { transform: scaleY(0.4); } }
+@keyframes feq3 { 0%, 100% { transform: scaleY(0.75); } 50% { transform: scaleY(0.28); } }
+
+/* Board wire-diagram (/board): a lit trace's dash creeps along it, a single
+   dot travels a wire once when its protocol gets selected, and each row
+   fades in on mount staggered by inline animation-delay. Fade only, no
+   translate — the SVG traces are measured from these elements' rects, and a
+   transform-based entrance would bake mid-animation positions into the wires. */
+@keyframes fboard-flow { to { stroke-dashoffset: -18; } }
+@keyframes fboard-pulse {
+  0% { offset-distance: 0%; opacity: 0; }
+  12% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0.15; }
+}
+@keyframes fboard-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

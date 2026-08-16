@@ -1,0 +1,39 @@
+{
+  "cli": {
+    "version": ">= 20.5.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID": "07ca18e4747adb59df06ff3f799b61ba",
+        "EXPO_PUBLIC_API_BASE": "https://prompt-2-defi.onrender.com"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID": "07ca18e4747adb59df06ff3f799b61ba",
+        "EXPO_PUBLIC_API_BASE": "https://prompt-2-defi.onrender.com"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_WALLETCONNECT_PROJECT_ID": "07ca18e4747adb59df06ff3f799b61ba",
+        "EXPO_PUBLIC_API_BASE": "https://prompt-2-defi.onrender.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
