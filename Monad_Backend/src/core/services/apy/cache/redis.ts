@@ -60,6 +60,9 @@ async function createClient(url: string): Promise<Redis> {
       redisOptions: { password, tls },
       scaleReads: "all",
     }) as unknown as Redis;
+    cluster.on("error", (err) => {
+      console.warn(`[redis:cluster] Error: ${(err as Error)?.message ?? err}`);
+    });
     await waitReady(cluster, CONNECT_TIMEOUT_MS);
     console.log(`[redis] Connected to cluster at ${host}:${port}`);
     return cluster;
@@ -70,6 +73,9 @@ async function createClient(url: string): Promise<Redis> {
   }
 
   const standalone = new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true });
+  standalone.on("error", (err) => {
+    console.warn(`[redis:standalone] Error: ${(err as Error)?.message ?? err}`);
+  });
   await standalone.connect();
   console.log(`[redis] Connected to standalone Redis at ${host}:${port}`);
   return standalone;

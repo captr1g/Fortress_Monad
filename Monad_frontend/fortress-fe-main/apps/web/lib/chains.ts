@@ -1,6 +1,7 @@
 export const BASE_CHAIN_ID = 8453;
 export const MONAD_CHAIN_ID = 143;
 export const MONAD_TESTNET_CHAIN_ID = 10143;
+export const DEFAULT_MONAD_CHAIN_ID = MONAD_CHAIN_ID;
 
 export const CHAIN_EXPLORERS: Record<number, string> = {
   [BASE_CHAIN_ID]: "https://basescan.org",

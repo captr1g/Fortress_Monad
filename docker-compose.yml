@@ -33,8 +33,22 @@ services:
       - RPC_MONAD=${RPC_MONAD:-https://rpc.monad.xyz}
       - RPC_MONAD_TESTNET=${RPC_MONAD_TESTNET:-https://testnet-rpc.monad.xyz}
       - APY_DATABASE_URL=${APY_DATABASE_URL}
-      - APY_REDIS_URL=${APY_REDIS_URL}
+      - APY_REDIS_URL=${APY_REDIS_URL:-redis://redis:6379}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-http://localhost:3000,http://localhost:3001,https://fortress.bhattdev.in,https://api.fortress.bhattdev.in}
+    depends_on:
+      - redis
+    networks:
+      - fortress-net
+
+  # ── 2. Redis Cache Service ──
+  redis:
+    image: redis:7-alpine
+    container_name: fortress-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
     networks:
       - fortress-net
 
@@ -81,3 +95,6 @@ services:
 networks:
   fortress-net:
     driver: bridge
+
+volumes:
+  redis-data:

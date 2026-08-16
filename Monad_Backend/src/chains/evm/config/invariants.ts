@@ -15,10 +15,19 @@ const VAULT_PROTOCOLS_ABI = [
   },
 ] as const;
 
+const monadChain = {
+  id: 143,
+  name: "Monad Mainnet",
+  nativeCurrency: { name: "MON", symbol: "MON", decimals: 18 },
+  rpcUrls: { default: { http: ["https://rpc.monad.xyz"] } },
+} as const satisfies Chain;
+
 const CHAIN_BY_ID: Record<number, Chain> = {
   8453: base,
   1: mainnet,
   42161: arbitrum,
+  143: monadChain,
+  10143: monadChain,
 };
 
 export type ProtocolMismatch = {
