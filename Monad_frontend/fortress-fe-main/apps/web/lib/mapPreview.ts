@@ -2,24 +2,27 @@ import type { Preview, StrategyStep as ApiStrategyStep } from "@fortress/core";
 import type { ApyLeg, LeverageDetail, Strategy, StrategyStep } from "./strategy";
 import { formatTokenAmount } from "./format";
 
+// Monad is the execution chain; the rest are bridge destinations the backend
+// accepts as `destChainId`, so their labels still need to render.
 const CHAIN_LABEL: Record<number, string> = {
+  143: "Monad",
+  10143: "Monad Testnet",
   1: "Ethereum",
-  8453: "Base",
   42161: "Arbitrum",
   10: "Optimism",
-  137: "Polygon",
 };
 
-// Fallback resolution for known Base tokens — in case the backend omits
+// Fallback resolution for known Monad tokens — in case the backend omits
 // `symbol`/`decimals` on a step's TokenAmount (which makes amounts render raw).
 const KNOWN_TOKENS: Record<string, { symbol: string; decimals: number }> = {
-  "0x4200000000000000000000000000000000000006": { symbol: "WETH", decimals: 18 },
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { symbol: "USDC", decimals: 6 },
-  "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca": { symbol: "USDbC", decimals: 6 },
-  "0x50c5725949a6f0c72e6c4a641f24049a917db0cb": { symbol: "DAI", decimals: 18 },
-  "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22": { symbol: "cbETH", decimals: 18 },
-  "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452": { symbol: "wstETH", decimals: 18 },
-  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": { symbol: "cbBTC", decimals: 8 },
+  "0x754704bc059f8c67012fed69bc8a327a5aafb603": { symbol: "USDC", decimals: 6 },
+  "0x3bd359c1119da7da1d913d1c4d2b7c461115433a": { symbol: "WMON", decimals: 18 },
+  "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": { symbol: "WETH", decimals: 18 },
+  "0x0555e30da8f98308edb960aa94c0db47230d2b9c": { symbol: "WBTC", decimals: 8 },
+  "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b": { symbol: "cbBTC", decimals: 8 },
+  "0xe7cd86e13ac4309349f30b3435a9d337750fc82d": { symbol: "USDT0", decimals: 6 },
+  "0x00000000efe302beaa2b3e6e1b18d08d69a9012a": { symbol: "AUSD", decimals: 6 },
+  "0x1b68626dca36c7fe922fd2d55e4f631d962de19c": { symbol: "shMON", decimals: 18 },
 };
 
 type ApiToken = { symbol: string; address: string; decimals: number; amount: string };
@@ -41,7 +44,7 @@ export function previewToStrategy(
   opts: { prompt: string; name: string },
 ): Strategy {
   const apiSteps = preview.steps ?? [];
-  const chainId = apiSteps[0]?.chainId ?? 8453;
+  const chainId = apiSteps[0]?.chainId ?? 143;
   const protocols = new Set(apiSteps.map((s) => s.venue).filter(Boolean));
   const alloc = preview.allocations;
   const start =

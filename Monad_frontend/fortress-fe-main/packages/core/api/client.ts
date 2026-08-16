@@ -232,17 +232,23 @@ type LegacyPlanResponse = {
   } | null;
 };
 
-// Known token addresses → display metadata for Base mainnet.
+// Known token addresses → display metadata for Monad mainnet (chainId 143).
+// Addresses verified against live RPC — Monad_Contract/Fortress/ADDRESSES.md §2.
 const TOKEN_META: Record<string, { symbol: string; decimals: number }> = {
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { symbol: "USDC", decimals: 6 },
-  "0x4200000000000000000000000000000000000006": { symbol: "WETH", decimals: 18 },
-  "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22": { symbol: "cbETH", decimals: 18 },
-  "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452": { symbol: "wstETH", decimals: 18 },
-  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": { symbol: "cbBTC", decimals: 8 },
-  "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca": { symbol: "USDbC", decimals: 6 },
+  "0x754704bc059f8c67012fed69bc8a327a5aafb603": { symbol: "USDC", decimals: 6 },
+  "0x3bd359c1119da7da1d913d1c4d2b7c461115433a": { symbol: "WMON", decimals: 18 },
+  "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": { symbol: "WETH", decimals: 18 },
+  "0x0555e30da8f98308edb960aa94c0db47230d2b9c": { symbol: "WBTC", decimals: 8 },
+  "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b": { symbol: "cbBTC", decimals: 8 },
+  "0xe7cd86e13ac4309349f30b3435a9d337750fc82d": { symbol: "USDT0", decimals: 6 },
+  "0x00000000efe302beaa2b3e6e1b18d08d69a9012a": { symbol: "AUSD", decimals: 6 },
+  "0x1b68626dca36c7fe922fd2d55e4f631d962de19c": { symbol: "shMON", decimals: 18 },
 };
 
-const TOKEN_ADDRESS_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+const TOKEN_ADDRESS_USDC = "0x754704Bc059F8C67012fEd69BC8A327a5aafb603";
+
+// Monad mainnet. The backend registers exactly one executable chain.
+const CHAIN_ID = 143;
 
 function tokenMeta(addr: string): { symbol: string; decimals: number } {
   return TOKEN_META[addr.toLowerCase()] ?? {
@@ -361,7 +367,7 @@ function legacyStepsToPreviewSteps(
       action: mapAction(s.action),
       venue: protocolFromAction(s.action),
       market: s.protocolData?.marketId,
-      chainId: 8453,
+      chainId: CHAIN_ID,
       tokenIn: {
         symbol: inMeta.symbol,
         address: s.tokenIn,
@@ -410,7 +416,7 @@ function buildLeverageStep(
       toolId: "leverage-0",
       action: "Open Leverage",
       venue: "Morpho",
-      chainId: 8453,
+      chainId: CHAIN_ID,
       tokenIn: { symbol: inMeta.symbol, address: inputToken, decimals: inMeta.decimals, amount: inputAmount },
       tokenOut: { symbol: outMeta.symbol, address: collateralToken, decimals: outMeta.decimals, amount: "0" },
       apy,
@@ -545,15 +551,19 @@ function adaptLegacyPlan(raw: LegacyPlanResponse, planId: string): Preview {
 
 // Default contract context sent when the caller doesn't supply one.
 const DEFAULT_CONTRACTS = `
-CHAIN: Base (8453)
+CHAIN: Monad (143)
 TOKENS:
-  USDC: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913 (6 decimals)
-  WETH: 0x4200000000000000000000000000000000000006 (18 decimals)
-  cbETH: 0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22 (18 decimals)
-  wstETH: 0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452 (18 decimals)
-  cbBTC: 0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf (8 decimals)
+  USDC: 0x754704Bc059F8C67012fEd69BC8A327a5aafb603 (6 decimals)
+  WMON: 0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A (18 decimals)
+  WETH: 0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242 (18 decimals)
+  WBTC: 0x0555E30da8f98308EdB960aa94C0Db47230d2B9c (8 decimals)
+  cbBTC: 0xd18B7EC58Cdf4876f6AFebd3Ed1730e4Ce10414b (8 decimals)
+  USDT0: 0xe7cd86e13AC4309349F30B3435a9d337750fC82D (6 decimals)
+  AUSD: 0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a (6 decimals)
 MORPHO MARKETS:
-  WETH/USDC 86% LLTV: 0x8793cf302b8ffd655ab97bd1c695dbd967807e8367a65cb2f4edaf1380ba1bda
+  None registered — the Morpho leverage/exit executors are not deployed on
+  Monad, so there is no supplyCollateral/borrow path. Deposits, withdrawals,
+  rebalances and bridges only.
 `.trim();
 
 const PLAN_POLL_INTERVAL_MS = 2000;

@@ -4,9 +4,11 @@
 // response (see api-requirements.md B6). When the backend ships that endpoint,
 // swap ACTION_GROUPS for a fetch/React-Query call — the types stay identical.
 //
-// Reflects the real prompt_2_defi tool registry, including honest `enabled`
-// flags: aave.supply is a stub and morpho.multiply is disabled, so both are
-// greyed out rather than advertised as working.
+// Reflects the real backend capability registry, including honest `enabled`
+// flags: anything the backend cannot currently build calldata for is greyed
+// out rather than advertised as working.
+
+const MONAD = 143;
 
 export type Action = {
   toolId: string;
@@ -21,38 +23,66 @@ export type ActionGroup = {
   actions: Action[];
 };
 
+// Mirrors apps/web/lib/actions.ts and the backend capability registry.
 export const ACTION_GROUPS: ActionGroup[] = [
   {
-    protocol: "LiFi",
+    protocol: "Aave",
     actions: [
-      { toolId: "lifi.swap", label: "Swap", capability: "SWAP", chains: [1, 8453, 42161], enabled: true },
-      { toolId: "lifi.bridge", label: "Bridge", capability: "BRIDGE", chains: [1, 8453, 42161, 10, 137], enabled: true },
+      { toolId: "aave.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "aave.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
+    ],
+  },
+  {
+    protocol: "Neverland",
+    actions: [
+      { toolId: "neverland.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "neverland.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
+    ],
+  },
+  {
+    protocol: "Euler",
+    actions: [
+      { toolId: "euler.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "euler.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
+    ],
+  },
+  {
+    protocol: "Curvance",
+    actions: [
+      { toolId: "curvance.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "curvance.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
     ],
   },
   {
     protocol: "Morpho",
     actions: [
-      { toolId: "morpho.lend", label: "Lend", capability: "LEND", chains: [8453], enabled: true },
-      { toolId: "morpho.supplyBorrow", label: "Supply & Borrow", capability: "SUPPLY_COLLATERAL", chains: [8453], enabled: true },
-      { toolId: "morpho.multiply", label: "Multiply", capability: "MULTIPLY", chains: [8453], enabled: false },
+      { toolId: "morpho.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "morpho.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
+      { toolId: "morpho.supplyBorrow", label: "Supply & Borrow", capability: "SUPPLY_COLLATERAL", chains: [MONAD], enabled: false },
+      { toolId: "morpho.multiply", label: "Multiply", capability: "MULTIPLY", chains: [MONAD], enabled: false },
     ],
   },
   {
-    protocol: "Pendle",
+    protocol: "shMONAD",
     actions: [
-      { toolId: "pendle.buyPt", label: "Buy PT", capability: "BUY_PT", chains: [8453], enabled: true },
-      { toolId: "pendle.buyYt", label: "Buy YT", capability: "BUY_YT", chains: [8453], enabled: true },
-      { toolId: "pendle.addLiquidity", label: "Add Liquidity", capability: "ADD_LIQUIDITY", chains: [8453], enabled: true },
+      { toolId: "shmonad.stake", label: "Stake", capability: "DEPOSIT", chains: [MONAD], enabled: false },
+    ],
+  },
+  {
+    protocol: "LiFi",
+    actions: [
+      { toolId: "lifi.swap", label: "Swap", capability: "SWAP", chains: [MONAD], enabled: true },
+      { toolId: "lifi.bridge", label: "Bridge", capability: "BRIDGE", chains: [MONAD, 1, 42161, 10], enabled: true },
     ],
   },
 ];
 
+// Monad executes; the rest appear only as LiFi bridge destinations.
 export const CHAINS: Record<number, { label: string; short: string; color: string }> = {
+  [MONAD]: { label: "Monad", short: "M", color: "#836EF9" },
   1: { label: "Ethereum", short: "E", color: "#627EEA" },
-  8453: { label: "Base", short: "B", color: "#2151F5" },
   42161: { label: "Arbitrum", short: "A", color: "#28A0F0" },
   10: { label: "Optimism", short: "O", color: "#FF0420" },
-  137: { label: "Polygon", short: "P", color: "#8247E5" },
 };
 
 export function searchActions(groups: ActionGroup[], query: string): ActionGroup[] {
@@ -83,24 +113,19 @@ export type WizardToken = {
   tvlUsd?: number;
 };
 
+// Display-only fallback for the wizard. Truncated addresses are for the chip
+// label; the real values come from GET /fortress/registry.
 export const TOKENS_BY_CHAIN: Record<number, WizardToken[]> = {
-  8453: [
-    { symbol: "USDC", name: "USD Coin", address: "0x8335…2913", apy: 3.13, tvlUsd: 176_290_000 },
-    { symbol: "cbBTC", name: "Coinbase Wrapped BTC", address: "0xcbB7…33Bf", apy: 0.01, tvlUsd: 144_190_000 },
-    { symbol: "ETH", name: "Ether", address: "0x4200…0006", apy: 2.4, tvlUsd: 88_120_000 },
-    { symbol: "cbETH", name: "Coinbase Wrapped ETH", address: "0x2Ae3…Ec22", apy: 2.1, tvlUsd: 44_450_000 },
-    { symbol: "wstETH", name: "Wrapped stETH", address: "0xc1CB…e452", apy: 3.4, tvlUsd: 31_080_000 },
+  [MONAD]: [
+    { symbol: "USDC", name: "USD Coin", address: "0x7547…b603" },
+    { symbol: "WMON", name: "Wrapped Monad", address: "0x3bd3…433A" },
+    { symbol: "WETH", name: "Wrapped Ether", address: "0xEE8c…1242" },
+    { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x0555…2B9c" },
+    { symbol: "cbBTC", name: "Coinbase Wrapped BTC", address: "0xd18B…414b" },
+    { symbol: "USDT0", name: "Tether USD", address: "0xe7cd…c82D" },
+    { symbol: "AUSD", name: "Agora Dollar", address: "0x0000…012a" },
+    { symbol: "shMON", name: "FastLane Staked MON", address: "0x1B68…E19c" },
   ],
-  1: [
-    { symbol: "USDC", name: "USD Coin", address: "0xA0b8…eB48", apy: 4.1, tvlUsd: 412_000_000 },
-    { symbol: "ETH", name: "Ether", address: "0xC02a…6Cc2", apy: 2.7, tvlUsd: 690_000_000 },
-  ],
-  42161: [
-    { symbol: "USDC", name: "USD Coin", address: "0xaf88…5831", apy: 3.8, tvlUsd: 120_000_000 },
-    { symbol: "ETH", name: "Ether", address: "0x82aF…Bab1", apy: 2.2, tvlUsd: 88_000_000 },
-  ],
-  10: [{ symbol: "USDC", name: "USD Coin", address: "0x0b2C…Ff85", apy: 3.2, tvlUsd: 22_000_000 }],
-  137: [{ symbol: "USDC", name: "USD Coin", address: "0x3c49…5359", apy: 3.0, tvlUsd: 18_000_000 }],
 };
 
 export function tokensForChain(chainId: number): WizardToken[] {

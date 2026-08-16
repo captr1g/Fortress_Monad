@@ -15,7 +15,7 @@ import { useSimulation, type Simulation } from "./useSimulation";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { WalletGate } from "@/components/auth/WalletGate";
 import { PromptComposer } from "./PromptComposer";
-import { getExplorerUrl } from "@/lib/chains";
+import { getExplorerUrl, chainIdToLabel, MONAD_CHAIN_ID } from "@/lib/chains";
 
 export function StrategyResult({
   strategy,
@@ -233,7 +233,7 @@ export function DeployAction({
   };
 
   if (step === "deployed") {
-    return <DeploySuccessPanel txHashes={txHashes} chainId={strategy.chain === "base" ? 8453 : 143} onViewPortfolio={() => router.push("/portfolio?updated=1")} />;
+    return <DeploySuccessPanel txHashes={txHashes} chainId={MONAD_CHAIN_ID} onViewPortfolio={() => router.push("/portfolio?updated=1")} />;
   }
 
   return (
@@ -329,7 +329,7 @@ export function DeploySuccessPanel({
         <div className="min-w-0">
           <div className="text-[14px] font-semibold text-fg">Strategy deployed</div>
           <div className="text-[12px] text-muted">
-            {txHashes.length} transaction{txHashes.length > 1 ? "s" : ""} confirmed on {chainId === 8453 ? "Base" : "Monad"}
+            {txHashes.length} transaction{txHashes.length > 1 ? "s" : ""} confirmed on {chainIdToLabel(chainId)}
           </div>
         </div>
       </div>

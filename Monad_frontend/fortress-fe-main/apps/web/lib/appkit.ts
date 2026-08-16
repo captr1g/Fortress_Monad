@@ -1,6 +1,6 @@
 import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { base, monad, monadTestnet } from "@reown/appkit/networks";
+import { monad, monadTestnet } from "@reown/appkit/networks";
 import { http } from "wagmi";
 
 // Reown AppKit (WalletConnect) + wagmi adapter. Wallet-only — no email/socials,
@@ -44,17 +44,17 @@ if (!projectId) {
   }
 }
 
-// Dedicated RPC transports for Base and Monad networks.
-const baseRpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org";
+// Dedicated RPC transports for the Monad networks. Monad is the only chain
+// the backend can execute on, so offering another network here would just let
+// a user connect to a chain every plan will be rejected against.
 const monadRpcUrl = process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://rpc.monad.xyz";
 const monadTestnetRpcUrl = process.env.NEXT_PUBLIC_MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz";
 
 export const wagmiAdapter = new WagmiAdapter({
-  networks: [monad, monadTestnet, base],
+  networks: [monad, monadTestnet],
   projectId: effectiveProjectId,
   ssr: true,
   transports: {
-    [base.id]: http(baseRpcUrl),
     [monad.id]: http(monadRpcUrl),
     [monadTestnet.id]: http(monadTestnetRpcUrl),
   },
@@ -62,7 +62,7 @@ export const wagmiAdapter = new WagmiAdapter({
 
 createAppKit({
   adapters: [wagmiAdapter],
-  networks: [monad, monadTestnet, base],
+  networks: [monad, monadTestnet],
   defaultNetwork: monad,
   projectId: effectiveProjectId,
   // Coinbase Wallet SDK's own telemetry beacon (cca-lite.coinbase.com) is

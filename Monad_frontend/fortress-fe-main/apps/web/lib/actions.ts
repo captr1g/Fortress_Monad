@@ -4,11 +4,12 @@
 // response (see api-requirements.md B6). When the backend ships that endpoint,
 // swap ACTION_GROUPS for a fetch/React-Query call — the types stay identical.
 //
-// Reflects the real prompt_2_defi tool registry, including honest `enabled`
-// flags: aave.supply is a stub and morpho.multiply is disabled, so both are
-// greyed out rather than advertised as working.
+// Reflects the real backend capability registry, including honest `enabled`
+// flags: anything the backend cannot currently build calldata for is greyed
+// out rather than advertised as working.
 
 import type { RegistryChain } from "@fortress/core";
+import { MONAD_CHAIN_ID as MONAD } from "./chains";
 
 export type Action = {
   toolId: string;
@@ -23,59 +24,72 @@ export type ActionGroup = {
   actions: Action[];
 };
 
+// Mirrors what Monad_Backend/src/boot.ts actually registers as capabilities.
+// `enabled: false` means the venue exists on-chain but the backend cannot
+// build calldata for it yet — greyed out rather than advertised as working.
 export const ACTION_GROUPS: ActionGroup[] = [
   {
-    protocol: "LiFi",
+    protocol: "Aave",
     actions: [
-      { toolId: "lifi.swap", label: "Swap", capability: "SWAP", chains: [1, 8453, 42161], enabled: true },
-      { toolId: "lifi.bridge", label: "Bridge", capability: "BRIDGE", chains: [1, 8453, 42161, 10, 137], enabled: true },
+      { toolId: "aave.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "aave.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
     ],
   },
   {
-    protocol: "Morpho",
+    protocol: "Neverland",
     actions: [
-      { toolId: "morpho.lend", label: "Lend", capability: "LEND", chains: [8453], enabled: true },
-      { toolId: "morpho.supplyBorrow", label: "Supply & Borrow", capability: "SUPPLY_COLLATERAL", chains: [8453], enabled: true },
-      { toolId: "morpho.multiply", label: "Multiply", capability: "MULTIPLY", chains: [8453], enabled: false },
-    ],
-  },
-  {
-    protocol: "Pendle",
-    actions: [
-      { toolId: "pendle.buyPt", label: "Buy PT", capability: "BUY_PT", chains: [8453], enabled: true },
-      { toolId: "pendle.buyYt", label: "Buy YT", capability: "BUY_YT", chains: [8453], enabled: true },
-      { toolId: "pendle.addLiquidity", label: "Add Liquidity", capability: "ADD_LIQUIDITY", chains: [8453], enabled: true },
-    ],
-  },
-  {
-    protocol: "Fluid",
-    actions: [
-      { toolId: "fluid.lend", label: "Lend", capability: "DEPOSIT", chains: [8453], enabled: true },
-      { toolId: "fluid.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [8453], enabled: true },
+      { toolId: "neverland.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "neverland.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
     ],
   },
   {
     protocol: "Euler",
     actions: [
-      { toolId: "euler.lend", label: "Lend", capability: "DEPOSIT", chains: [8453], enabled: true },
-      { toolId: "euler.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [8453], enabled: true },
+      { toolId: "euler.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "euler.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
     ],
   },
   {
-    protocol: "CompoundV3",
+    protocol: "Curvance",
     actions: [
-      { toolId: "compound.lend", label: "Lend", capability: "DEPOSIT", chains: [8453], enabled: true },
-      { toolId: "compound.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [8453], enabled: true },
+      { toolId: "curvance.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "curvance.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
+    ],
+  },
+  {
+    protocol: "Morpho",
+    actions: [
+      { toolId: "morpho.lend", label: "Lend", capability: "DEPOSIT", chains: [MONAD], enabled: true },
+      { toolId: "morpho.withdraw", label: "Withdraw", capability: "WITHDRAW", chains: [MONAD], enabled: true },
+      // The Hyperithm USDC Apex vault is registered but currently at cap
+      // (maxDeposit() == 0), and the leverage executor is not deployed at all.
+      { toolId: "morpho.supplyBorrow", label: "Supply & Borrow", capability: "SUPPLY_COLLATERAL", chains: [MONAD], enabled: false },
+      { toolId: "morpho.multiply", label: "Multiply", capability: "MULTIPLY", chains: [MONAD], enabled: false },
+    ],
+  },
+  {
+    protocol: "shMONAD",
+    actions: [
+      // Registered on FortVault, but its adapter takes an encoded USDC->MON
+      // swap route the backend has no builder for yet.
+      { toolId: "shmonad.stake", label: "Stake", capability: "DEPOSIT", chains: [MONAD], enabled: false },
+    ],
+  },
+  {
+    protocol: "LiFi",
+    actions: [
+      { toolId: "lifi.swap", label: "Swap", capability: "SWAP", chains: [MONAD], enabled: true },
+      { toolId: "lifi.bridge", label: "Bridge", capability: "BRIDGE", chains: [MONAD, 1, 42161, 10], enabled: true },
     ],
   },
 ];
 
+// Monad executes; the rest appear only as LiFi bridge destinations.
 export const CHAINS: Record<number, { label: string; short: string; color: string }> = {
+  [MONAD]: { label: "Monad", short: "M", color: "#836EF9" },
   1: { label: "Ethereum", short: "E", color: "#627EEA" },
-  8453: { label: "Base", short: "B", color: "#2151F5" },
   42161: { label: "Arbitrum", short: "A", color: "#28A0F0" },
   10: { label: "Optimism", short: "O", color: "#FF0420" },
-  137: { label: "Polygon", short: "P", color: "#8247E5" },
 };
 
 export function searchActions(groups: ActionGroup[], query: string): ActionGroup[] {

@@ -1,6 +1,6 @@
 export {
   useWalletAssets,
-  BASE_TOKENS,
+  MONAD_TOKENS,
   type TokenDef,
   type LiveAsset,
   type UseWalletAssetsResult,

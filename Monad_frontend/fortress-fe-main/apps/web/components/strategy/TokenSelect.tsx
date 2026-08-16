@@ -1,115 +1,87 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { TokenIcon, NetworkIcon } from "./icons";
+import { useRegistry } from "@fortress/core/hooks";
+import { MONAD_TOKENS, NATIVE_MON, MONAD_CHAIN_ID, MONAD_TESTNET_CHAIN_ID, type ChainToken } from "@/lib/chains";
 
 const formatDisplayAddress = (addr?: string | null) =>
   addr && addr.length > 10 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
 
-const monadUsdcAddress = (process.env.NEXT_PUBLIC_MONAD_USDC_ADDRESS || null) as `0x${string}` | null;
-const monadWmonAddress = (process.env.NEXT_PUBLIC_MONAD_WMON_ADDRESS || null) as `0x${string}` | null;
-const monadWethAddress = (process.env.NEXT_PUBLIC_MONAD_WETH_ADDRESS || null) as `0x${string}` | null;
+type UiToken = {
+  symbol: string;
+  name: string;
+  address: `0x${string}` | null;
+  displayAddress: string;
+  network: string;
+  decimals: number;
+  disabled: boolean;
+};
 
-const TOKENS = [
-  {
-    symbol: "MON",
-    name: "Monad",
-    address: null,
-    displayAddress: "",
+function toUiToken(t: ChainToken): UiToken {
+  return {
+    symbol: t.symbol,
+    name: t.name,
+    address: t.address,
+    displayAddress: formatDisplayAddress(t.address),
     network: "monad",
-    decimals: 18,
+    decimals: t.decimals,
+    // The backend only accepts USDC for a plain deposit; every other token
+    // routes through swapAndDeposit, which is live. Nothing here is "soon".
     disabled: false,
-  },
+  };
+}
 
-  
-  {
-    symbol: "USDC.e",
-    name: "USDC.e (Monad)",
-    address: monadUsdcAddress,
-    displayAddress: formatDisplayAddress(monadUsdcAddress),
-    network: "monad",
-    decimals: 6,
-    disabled: false,
-  },
-  {
-    symbol: "WMON",
-    name: "Wrapped MON",
-    address: monadWmonAddress,
-    displayAddress: formatDisplayAddress(monadWmonAddress),
-    network: "monad",
-    decimals: 18,
-    disabled: false,
-  },
-  {
-    symbol: "WETH",
-    name: "Wrapped Ether (Monad)",
-    address: monadWethAddress,
-    displayAddress: formatDisplayAddress(monadWethAddress),
-    network: "monad",
-    decimals: 18,
-    disabled: !monadWethAddress,
-  },
-  {
-    symbol: "USDC",
-    name: "USD Coin",
-    address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
-    displayAddress: "0x8335...2913",
-    network: "base",
-    decimals: 6,
-    disabled: false,
-  },
-  {
-    symbol: "ETH",
-    name: "ether",
-    address: null,
-    displayAddress: "",
-    network: "base",
-    decimals: 18,
-    disabled: true,
-  },
-  {
-    symbol: "cbETH",
-    name: "Coinbase Wrapped Staked ETH",
-    address: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22" as `0x${string}`,
-    displayAddress: "0x2Ae3...c22",
-    network: "base",
-    decimals: 18,
-    disabled: true,
-  },
-  {
-    symbol: "cbBTC",
-    name: "Coinbase Wrapped BTC",
-    address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf" as `0x${string}`,
-    displayAddress: "0xcbB7...3Bf",
-    network: "base",
-    decimals: 8,
-    disabled: true,
-  },
-  {
-    symbol: "USDbC",
-    name: "USD Base Coin",
-    address: "0xd9aAEc86b65D86f6A7B5B1b0c42FFA531710b6CA" as `0x${string}`,
-    displayAddress: "0xd9aA...6CA",
-    network: "base",
-    decimals: 6,
-    disabled: true,
-  },
-];
+// Native MON first (it is what a new wallet actually holds), then the ERC-20s.
+const FALLBACK_TOKENS: UiToken[] = [NATIVE_MON, ...MONAD_TOKENS].map(toUiToken);
 
-// Address for the plan request's binding `inputToken` field. The list above
-// mirrors the backend registry's Base data (GET /fortress/registry).
+/**
+ * Token list for the picker, read from the backend registry
+ * (GET /fortress/registry) so it cannot drift from the chain the backend will
+ * actually plan against. Falls back to the compiled-in Monad list while the
+ * request is in flight or if it fails.
+ *
+ * This used to be a hardcoded array that still held Base tokens after the
+ * Monad cutover, so the picker offered Base USDC (0x833589fC...) and every
+ * plan came back "The generated plan doesn't start from your selected token".
+ * Reading the registry is what stops that recurring.
+ */
+function useTokenList(): UiToken[] {
+  const { data } = useRegistry();
+  return useMemo(() => {
+    const chain = data?.chains?.find((c) => c.executable) ?? data?.chains?.[0];
+    if (!chain?.tokens?.length) return FALLBACK_TOKENS;
+    return [
+      toUiToken(NATIVE_MON),
+      ...chain.tokens.map((t) =>
+        toUiToken({
+          symbol: t.symbol,
+          name: t.name,
+          address: t.address as `0x${string}`,
+          decimals: t.decimals,
+          stable: t.stable,
+          inputEnabled: t.inputEnabled,
+        }),
+      ),
+    ];
+  }, [data]);
+}
+
+// Address for the plan request's binding `inputToken` field.
+//
+// Not hook-based: StrategyBuilder calls it during submit, outside render. It
+// resolves against the compiled-in Monad list, which is the same data the
+// registry serves — a symbol that exists in one but not the other would mean
+// the backend registry changed, and the picker (which IS registry-driven)
+// would never have offered that symbol in the first place.
 export function tokenAddressForSymbol(symbol: string): `0x${string}` | undefined {
-  return TOKENS.find((t) => t.symbol === symbol)?.address ?? undefined;
+  const match = [NATIVE_MON, ...MONAD_TOKENS].find((t) => t.symbol === symbol);
+  return match?.address ?? undefined;
 }
 
 const CHAINS = [
   { id: "monad", name: "Monad", color: "bg-[#836EF9]", disabled: false },
-  { id: "base", name: "Base", color: "bg-[#0052FF]", disabled: false },
-  { id: "mainnet", name: "Ethereum", color: "bg-[#627EEA]", disabled: true },
-  { id: "optimism", name: "Optimism", color: "bg-[#FF0420]", disabled: true },
-  { id: "arbitrum", name: "Arbitrum", color: "bg-[#28A0F0]", disabled: true },
-  { id: "bsc", name: "BSC", color: "bg-[#F3BA2F]", disabled: true },
 ];
 
 function getNetworkBadgeColor(network: string) {
@@ -118,12 +90,15 @@ function getNetworkBadgeColor(network: string) {
 }
 
 // Fetches and formats a single token balance for the connected wallet.
-function useTokenBalance(token: (typeof TOKENS)[number]) {
+function useTokenBalance(token: UiToken) {
   const { address, chainId: currentChainId } = useAccount();
-  const tokenChainId = token.network === "monad" ? (currentChainId === 10143 ? 10143 : 143) : 8453;
+  // Monad only. Honour testnet when the wallet is actually on it, so a
+  // testnet session reads testnet balances instead of silently showing zero.
+  const tokenChainId =
+    currentChainId === MONAD_TESTNET_CHAIN_ID ? MONAD_TESTNET_CHAIN_ID : MONAD_CHAIN_ID;
 
-  // Native balance (ETH or MON)
-  const isNative = token.symbol === "ETH" || token.symbol === "MON";
+  // Native balance (MON)
+  const isNative = token.address === null;
   const { data: nativeData } = useBalance({
     address,
     chainId: tokenChainId,
@@ -160,7 +135,7 @@ function TokenRow({
   token,
   onSelect,
 }: {
-  token: (typeof TOKENS)[number];
+  token: UiToken;
   onSelect: () => void;
 }) {
   const { balance } = useTokenBalance(token);
@@ -232,12 +207,18 @@ export function TokenSelect({ value, onChange }: { value: string; onChange: (v: 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const selectedToken = TOKENS.find((t) => t.symbol === value) || TOKENS[1];
+  const tokens = useTokenList();
+  // Default to USDC — the only token a plain deposit accepts — rather than
+  // whatever happens to sit at a fixed index.
+  const selectedToken =
+    tokens.find((t) => t.symbol === value) ??
+    tokens.find((t) => t.symbol === "USDC") ??
+    tokens[0];
 
   const filteredTokens =
     selectedChains.length > 0
-      ? TOKENS.filter((t) => selectedChains.includes(t.network))
-      : TOKENS;
+      ? tokens.filter((t) => selectedChains.includes(t.network))
+      : tokens;
 
   return (
     <div className="relative w-fit z-50" ref={containerRef}>
@@ -285,9 +266,7 @@ export function TokenSelect({ value, onChange }: { value: string; onChange: (v: 
                 }`}
               >
                 <div className="flex -space-x-1.5 mr-1">
-                  <div className="h-3.5 w-3.5 rounded-full border border-surface bg-[#0052FF]" />
-                  <div className="h-3.5 w-3.5 rounded-full border border-surface bg-[#E84142]" />
-                  <div className="h-3.5 w-3.5 rounded-full border border-surface bg-[#F3BA2F]" />
+                  <div className="h-3.5 w-3.5 rounded-full border border-surface bg-[#836EF9]" />
                 </div>
                 {selectedChains.length > 0 ? `${selectedChains.length} Chains` : "All Chains"}
                 <span className="ml-1.5 text-[10px] text-muted">▾</span>

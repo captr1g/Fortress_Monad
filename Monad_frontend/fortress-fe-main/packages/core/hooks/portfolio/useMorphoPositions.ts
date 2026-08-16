@@ -34,35 +34,22 @@ export interface MorphoPosition {
 
 // ─── Token address → symbol/name map (Base chain) ────────────────────────────
 
+// Monad token metadata for Morpho Blue position rendering.
+//
+// FORTRESS registers no Morpho Blue markets on Monad — the leverage/exit
+// executors that would open positions against them are not deployed — so this
+// map only needs the chain's own tokens. It replaced a ~40-entry Base
+// collateral registry (cbETH/cbXRP/cbDOGE/JitoSOL/...) whose addresses have no
+// code on Monad. Extend it when markets are registered, not before.
 const TOKEN_META: Record<string, { symbol: string; name: string; decimals: number }> = {
-  // collateral tokens
-  "0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22": { symbol: "cbETH",  name: "Coinbase Staked ETH",    decimals: 18 },
-  "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": { symbol: "cbBTC",  name: "Coinbase Wrapped BTC",   decimals: 8  },
-  "0x2416092f143378750bb29b79ed961ab195cceea5": { symbol: "ezETH",  name: "Renzo Restaked ETH",     decimals: 18 },
-  // Was "0xecac9c5f704e954931349da37f60bb39c9223e37" — that address has no
-  // deployed contract on Base (verified via eth_call symbol() → "0x", empty).
-  // Corrected against Morpho's own API + on-chain symbol() confirmation.
-  "0xecac9c5f704e954931349da37f60e39f515c11c1": { symbol: "LBTC",   name: "Lombard Staked BTC",      decimals: 8  },
-  "0x4200000000000000000000000000000000000006": { symbol: "WETH",   name: "Wrapped Ether",           decimals: 18 },
-  "0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452": { symbol: "wstETH", name: "Wrapped Staked ETH",       decimals: 18 },
-  "0x04c0599ae5a44757c0af6f9ec3b93da8976c150a": { symbol: "weETH",  name: "Wrapped eETH",             decimals: 18 },
-  "0x4bcaf180df5b13c0441fe41a66e9638a2a410c6d": { symbol: "HERMES", name: "Hermes",                   decimals: 18 },
-  "0xcb585250f852c6c6bf90434ab21a00f02833a4af": { symbol: "cbXRP",  name: "Coinbase Wrapped XRP",     decimals: 6  },
-  "0x311935cd80b76769bf2ecc9d8ab7635b2139cf82": { symbol: "SOL",    name: "Wrapped SOL",              decimals: 9  },
-  "0x7fcd174e80f264448ebee8c88a7c4476aaf58ea6": { symbol: "wsuperOETHb", name: "Wrapped Super OETH Base", decimals: 18 },
-  "0xcbada732173e39521cdbe8bf59a6dc85a9fc7b8c": { symbol: "cbADA",  name: "Coinbase Wrapped ADA",     decimals: 6  },
-  "0xcbd06e5a2b0c65597161de254aa074e489deb510": { symbol: "cbDOGE", name: "Coinbase Wrapped DOGE",    decimals: 8  },
-  "0xcb17c9db87b595717c857a08468793f5bab6445f": { symbol: "cbLTC",  name: "Coinbase Wrapped LTC",     decimals: 8  },
-  "0x97be14dd8f994a5364573bc035d85309e7cb34de": { symbol: "JitoSOL", name: "Jito Staked SOL",         decimals: 9  },
-  // loan tokens
-  "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913": { symbol: "USDC",   name: "USD Coin",                decimals: 6  },
-  "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2": { symbol: "USDT",   name: "Tether USD",              decimals: 6  },
-  "0x60a3e35cc302bfa44cb288bc5a4f316fdb1adb42": { symbol: "EURC",   name: "Euro Coin",                decimals: 6  },
-  "0x5d3a1ff2b6bab83b63cd9ad0787074081a52ef34": { symbol: "USDe",   name: "Ethena USDe",              decimals: 18 },
-  "0x35e5db674d8e93a03d814fa0ada70731efe8a4b9": { symbol: "USR",    name: "Resolv USR",               decimals: 18 },
-  "0x7ba6f01772924a82d9626c126347a28299e98c98": { symbol: "msETH",  name: "Metronome Synth ETH",      decimals: 18 },
-  "0xbeefe94c8ad530842bfe7d8b397938ffc1cb83b2": { symbol: "steakUSDC", name: "Steakhouse USDC",       decimals: 18 },
-  "0x0a4c9cb2778ab3302996a34befcf9a8bc288c33b": { symbol: "XSGD",   name: "StraitsX Singapore Dollar", decimals: 6  },
+  "0x754704bc059f8c67012fed69bc8a327a5aafb603": { symbol: "USDC",  name: "USD Coin",            decimals: 6  },
+  "0x3bd359c1119da7da1d913d1c4d2b7c461115433a": { symbol: "WMON",  name: "Wrapped Monad",       decimals: 18 },
+  "0xee8c0e9f1bffb4eb878d8f15f368a02a35481242": { symbol: "WETH",  name: "Wrapped Ether",       decimals: 18 },
+  "0x0555e30da8f98308edb960aa94c0db47230d2b9c": { symbol: "WBTC",  name: "Wrapped Bitcoin",     decimals: 8  },
+  "0xd18b7ec58cdf4876f6afebd3ed1730e4ce10414b": { symbol: "cbBTC", name: "Coinbase Wrapped BTC", decimals: 8  },
+  "0xe7cd86e13ac4309349f30b3435a9d337750fc82d": { symbol: "USDT0", name: "Tether USD",          decimals: 6  },
+  "0x00000000efe302beaa2b3e6e1b18d08d69a9012a": { symbol: "AUSD",  name: "Agora Dollar",        decimals: 6  },
+  "0x1b68626dca36c7fe922fd2d55e4f631d962de19c": { symbol: "shMON", name: "FastLane Staked MON", decimals: 18 },
 };
 
 function resolveToken(address: string) {

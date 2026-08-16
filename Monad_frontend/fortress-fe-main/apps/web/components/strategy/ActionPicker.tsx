@@ -16,6 +16,7 @@ import { useRegistry } from "@fortress/core/hooks";
 import { cn } from "@/lib/cn";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { ProtocolMark, TokenIcon, NetworkIcon } from "./icons";
+import { MONAD_CHAIN_ID } from "@/lib/chains";
 
 export type Step = "action" | "chain" | "token" | "amount";
 export type Draft = {
@@ -484,7 +485,7 @@ function ChainStep({ chains, onPick }: { chains: number[]; onPick: (id: number) 
   }
   useListNav(filtered.length, active, setActive, () => {
     const id = filtered[active];
-    if (id != null && id === 8453) onPick(id);
+    if (id != null && id === MONAD_CHAIN_ID) onPick(id);
   });
 
   return (
@@ -496,7 +497,7 @@ function ChainStep({ chains, onPick }: { chains: number[]; onPick: (id: number) 
         ) : (
           <div className="px-1.5">
             {filtered.map((id, i) => {
-              const disabled = id !== 8453;
+              const disabled = id !== MONAD_CHAIN_ID;
               return (
                 <button
                   key={id}

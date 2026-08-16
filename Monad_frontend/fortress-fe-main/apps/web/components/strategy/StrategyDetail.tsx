@@ -10,7 +10,7 @@ import { TopBar } from "./TopBar";
 import { TokenIcon, ProtocolMark, NetworkIcon } from "./icons";
 import { WalletGate } from "@/components/auth/WalletGate";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
-import { getExplorerUrl, chainIdToNetwork } from "@/lib/chains";
+import { getExplorerUrl, chainIdToNetwork, chainIdToLabel } from "@/lib/chains";
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   monitoring: { label: "Monitoring", cls: "border-[#3b82f6]/25 bg-[#3b82f6]/10 text-[#60a5fa]" },
@@ -379,7 +379,7 @@ function StrategyFlow({ strategy, startingToken }: { strategy: StrategyDetailTyp
     <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface-2">
       <div className="flex items-center gap-2 border-b border-line-soft bg-surface px-4 py-3">
         <NetworkIcon network={chainIdToNetwork(strategy.chainId)} size={18} />
-        <span className="text-[12.5px] font-semibold">{strategy.chainId === 8453 ? "Base" : (strategy.chainId === 1 ? "Ethereum" : "Monad")}</span>
+        <span className="text-[12.5px] font-semibold">{chainIdToLabel(strategy.chainId)}</span>
         <span className="mono ml-auto text-[11.5px] text-faint">{strategy.steps.length} actions</span>
       </div>
 

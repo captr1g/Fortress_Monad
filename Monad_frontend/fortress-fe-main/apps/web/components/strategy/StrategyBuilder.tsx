@@ -13,6 +13,7 @@ import { PromptComposer } from "./PromptComposer";
 import { TopBar } from "./TopBar";
 import { TokenIcon } from "./icons";
 import { TokenSelect, tokenAddressForSymbol } from "./TokenSelect";
+import { MONAD_CHAIN_ID } from "@/lib/chains";
 import { useSimulation } from "./useSimulation";
 import { DeployAction, MetricRow, StepsPanel, SaveStrategyAction, SimulationBanner } from "./StrategyResult";
 import { AmbientAurora } from "./AmbientAurora";
@@ -113,7 +114,7 @@ export function StrategyBuilder() {
     const inputToken = tokenAddressForSymbol(startingToken);
 
     createPlan.mutate(
-      { prompt: p, walletAddress: address, chainId: 8453, inputToken, name: n || undefined },
+      { prompt: p, walletAddress: address, chainId: MONAD_CHAIN_ID, inputToken, name: n || undefined },
       {
         onSuccess: (preview) => {
           const strat = previewToStrategy(preview, { prompt: p, name: n });
