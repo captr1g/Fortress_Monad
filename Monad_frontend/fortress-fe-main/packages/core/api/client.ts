@@ -91,6 +91,13 @@ function resolveBase(override?: string): string {
   if (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_API_BASE) {
     return process.env.NEXT_PUBLIC_API_BASE;
   }
+  if (typeof window !== "undefined" && window.location?.hostname) {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") {
+      // In production browser, route to api subdomain (e.g. api.fortress.bhattdev.in)
+      return `https://api.${host.replace(/^www\./, "")}`;
+    }
+  }
   return "http://localhost:3000";
 }
 
@@ -955,5 +962,5 @@ export type FortressClient = ReturnType<typeof createFortressClient>;
 // NEXT_PUBLIC_API_BASE is inlined by Next.js at build time.
 // Falls back to localhost:3000 for local development without the env var set.
 export const fortressApi = createFortressClient(
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3000",
+  process.env.NEXT_PUBLIC_API_BASE,
 );
