@@ -13,6 +13,17 @@ const monadWethAddress = (process.env.NEXT_PUBLIC_MONAD_WETH_ADDRESS || null) as
 
 const TOKENS = [
   {
+    symbol: "MON",
+    name: "Monad",
+    address: null,
+    displayAddress: "",
+    network: "monad",
+    decimals: 18,
+    disabled: false,
+  },
+
+  
+  {
     symbol: "USDC.e",
     name: "USDC.e (Monad)",
     address: monadUsdcAddress,
