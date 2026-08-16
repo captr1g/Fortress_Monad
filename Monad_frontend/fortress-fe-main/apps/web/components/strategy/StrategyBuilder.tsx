@@ -30,38 +30,29 @@ type BuildError = {
 
 const TEMPLATES: Template[] = [
   {
-    label: "Basic Morpho Borrow",
-    token: "USDC",
-    desc: "Supply cbETH collateral to Morpho and borrow USDC against it safely.",
+    label: "Monad FastLane Staking",
+    token: "MON",
+    desc: "Stake native MON into FastLane shMON for automated staking yield.",
     prompt:
-      "I have 1 USDC on Base.\n\n" +
-      "1. Swap 100% USDC to WETH.\n" +
-      "2. Wrap 100% WETH into cbETH.\n" +
-      "3. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base.\n" +
-      "4. Borrow USDC at 30% LTV against cbETH.",
+      "I have 10 MON on Monad.\n\n" +
+      "1. Deposit 100% MON into FastLane shMON Liquid Staking on Monad.",
   },
   {
-    label: "Morpho Leverage Loop (2x)",
-    token: "USDC",
-    desc: "Supply cbETH and automate a recursive 35% LTV borrow-swap-supply loop twice.",
+    label: "Monad Wrap & Yield",
+    token: "MON",
+    desc: "Wrap native MON into WMON and allocate into yield venues on Monad.",
     prompt:
-      "I have 1 USDC on Base.\n\n" +
-      "1. Swap 100% USDC to WETH.\n" +
-      "2. Wrap 100% WETH into cbETH.\n" +
-      "3. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base.\n\n" +
-      "Then repeat 2 times:\n" +
-      "4. Borrow USDC at 35% LTV.\n" +
-      "5. Swap borrowed USDC to WETH.\n" +
-      "6. Wrap WETH into cbETH.\n" +
-      "7. Supply 100% cbETH.",
+      "I have 10 MON on Monad.\n\n" +
+      "1. Wrap 50% MON to WMON.\n" +
+      "2. Supply 100% WMON for yield on Monad.",
   },
   {
-    label: "Deposit 100 USDC into Morpho",
-    token: "USDC",
-    desc: "Supply 100 USDC to Morpho for a steady yield.",
+    label: "USDC.e Supply on Monad",
+    token: "USDC.e",
+    desc: "Supply USDC.e on Monad for stable yield.",
     prompt:
-      "I have 100 USDC on Base.\n\n" +
-      "1. Supply 100% USDC to Morpho on Base.",
+      "I have 100 USDC.e on Monad.\n\n" +
+      "1. Supply 100% USDC.e to yield pool on Monad.",
   },
 ];
 

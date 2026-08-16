@@ -9,14 +9,14 @@ import { DetailRail } from "./DetailRail";
 import { buildTerminals } from "./terminals";
 import { ActionsStrip } from "./ActionsStrip";
 
-const BASE_CHAIN_ID = 8453;
+import { MONAD_CHAIN_ID, BASE_CHAIN_ID } from "@/lib/chains";
 
 export function BoardPage() {
   useSeedRegistryCache();
   const { data, isLoading, isError } = useRegistry();
   const [activeName, setActiveName] = useState<string | null>(null);
 
-  const chain = data?.chains.find((c) => c.chainId === BASE_CHAIN_ID);
+  const chain = data?.chains.find((c) => c.chainId === MONAD_CHAIN_ID) ?? data?.chains.find((c) => c.chainId === BASE_CHAIN_ID);
   const protocols = chain?.protocols ?? [];
   const markets = chain?.markets ?? [];
   const destinationCount = protocols.reduce((sum, p) => sum + buildTerminals(p, markets).length, 0);
@@ -46,7 +46,7 @@ export function BoardPage() {
         <div style={{ animation: "ffadein .4s ease both" }}>
           <div className="mono mb-3 flex items-center gap-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">
             <span className="inline-block h-[7px] w-[7px] rounded-[1px] bg-gold" aria-hidden />
-            Base mainnet, chainId {BASE_CHAIN_ID}
+            Monad mainnet, chainId {MONAD_CHAIN_ID}
           </div>
           <h1 className="mono mb-3 text-[28px] font-bold tracking-tight text-fg sm:text-[34px]">
             The Fortress board

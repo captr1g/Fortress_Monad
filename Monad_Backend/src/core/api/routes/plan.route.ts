@@ -6,7 +6,7 @@ import { createOptionalAuthMiddleware } from "../../services/auth/middleware.js"
 import { createPlanRateLimiter } from "../middleware/plan-rate-limit.js";
 import type { AnalyticsService } from "../../services/analytics/index.js";
 
-const PLAN_CALLS_PER_DAY = 6;
+const PLAN_CALLS_PER_DAY = 60;
 
 export function registerPlanRoutes(
   app: FastifyInstance,
@@ -17,9 +17,17 @@ export function registerPlanRoutes(
   selfBaseUrl?: string,
   analytics?: AnalyticsService,
 ): void {
-  const controller = new FortressController(orchestrator, chainKey, chainId, redis, selfBaseUrl, analytics);
+  const controller = new FortressController(
+    orchestrator,
+    chainKey,
+    chainId,
+    redis,
+    selfBaseUrl,
+    analytics,
+  );
   const handlePlan = (req: any, reply: any) => controller.plan(req, reply);
-  const handleWorker = (req: any, reply: any) => controller.planWorker(req, reply);
+  const handleWorker = (req: any, reply: any) =>
+    controller.planWorker(req, reply);
   const handleGetJob = (req: any, reply: any) => controller.getJob(req, reply);
 
   // Plan rate limiter: Redis-backed per-day quota. Fails closed — if Redis
@@ -28,13 +36,17 @@ export function registerPlanRoutes(
   // that MUST be removed before production deployment.
   const rateLimitDisabled = process.env.DISABLE_PLAN_RATE_LIMIT === "true";
   if (rateLimitDisabled) {
-    console.warn("[WARN] Plan rate limit is DISABLED — do NOT deploy to production like this.");
+    console.warn(
+      "[WARN] Plan rate limit is DISABLED — do NOT deploy to production like this.",
+    );
   }
   const preHandler = redis
     ? [
-      createOptionalAuthMiddleware(redis),
-      ...(rateLimitDisabled ? [] : [createPlanRateLimiter(redis, PLAN_CALLS_PER_DAY)]),
-    ]
+        createOptionalAuthMiddleware(redis),
+        ...(rateLimitDisabled
+          ? []
+          : [createPlanRateLimiter(redis, PLAN_CALLS_PER_DAY)]),
+      ]
     : [];
 
   app.post("/fortress/plan", { preHandler }, handlePlan);

@@ -9,27 +9,25 @@ function protocolKey(name: string): Address {
   return keccak256(toBytes(name));
 }
 
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
+
 export function loadBaseConfig(): EvmChainConfig {
-  const vault = process.env.FORTRESS_VAULT as Address;
-  const swapRouter = process.env.FORTRESS_SWAP_ROUTER as Address;
-  const crossChainRouter = process.env
-    .FORTRESS_CROSS_CHAIN_ROUTER as Address;
-  const usdc = process.env.FORTRESS_USDC as Address;
-  const lifiDiamond = process.env.FORTRESS_LIFI_DIAMOND as Address;
-  const strategyExecutor = process.env
-    .FORTRESS_STRATEGY_EXECUTOR as Address;
-  const morphoExitExecutor = process.env
-    .FORTRESS_MORPHO_EXIT_EXECUTOR as Address;
-  const morphoLeverageExecutor = process.env
-    .FORTRESS_MORPHO_LEVERAGE_EXECUTOR as Address;
-  const morphoBlue = process.env.FORTRESS_MORPHO_BLUE as Address;
-  const morphoAdapter = process.env.FORTRESS_MORPHO_ADAPTER as Address;
-  const swapAdapter = process.env.FORTRESS_SWAP_ADAPTER as Address;
-  const pendleRouter = process.env.FORTRESS_PENDLE_ROUTER as Address;
-  const pendleAdapter = process.env.FORTRESS_PENDLE_ADAPTER as Address;
-  const aerodromeRouter = (process.env.FORTRESS_AERODROME_ROUTER ?? "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43") as Address;
+  const vault = (process.env.FORTRESS_VAULT || ZERO_ADDRESS) as Address;
+  const swapRouter = (process.env.FORTRESS_SWAP_ROUTER || ZERO_ADDRESS) as Address;
+  const crossChainRouter = (process.env.FORTRESS_CROSS_CHAIN_ROUTER || ZERO_ADDRESS) as Address;
+  const usdc = (process.env.FORTRESS_USDC || "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") as Address;
+  const lifiDiamond = (process.env.FORTRESS_LIFI_DIAMOND || "0x1231DEB6f5749EF6cE6943a275A1D3E7486F4EaE") as Address;
+  const strategyExecutor = (process.env.FORTRESS_STRATEGY_EXECUTOR || ZERO_ADDRESS) as Address;
+  const morphoExitExecutor = (process.env.FORTRESS_MORPHO_EXIT_EXECUTOR || ZERO_ADDRESS) as Address;
+  const morphoLeverageExecutor = (process.env.FORTRESS_MORPHO_LEVERAGE_EXECUTOR || ZERO_ADDRESS) as Address;
+  const morphoBlue = (process.env.FORTRESS_MORPHO_BLUE || "0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb") as Address;
+  const morphoAdapter = (process.env.FORTRESS_MORPHO_ADAPTER || ZERO_ADDRESS) as Address;
+  const swapAdapter = (process.env.FORTRESS_SWAP_ADAPTER || ZERO_ADDRESS) as Address;
+  const pendleRouter = (process.env.FORTRESS_PENDLE_ROUTER || "0x888888888889758F76e7103c6CbF23ABbF58F946") as Address;
+  const pendleAdapter = (process.env.FORTRESS_PENDLE_ADAPTER || ZERO_ADDRESS) as Address;
+  const aerodromeRouter = (process.env.FORTRESS_AERODROME_ROUTER || "0xcF77a3Ba9A5CA399B7c97c74d54e5b1Beb874E43") as Address;
   const chainId = Number(process.env.FORTRESS_CHAIN_ID) || 8453;
-  const rpcUrl = process.env.RPC_BASE as string;
+  const rpcUrl = process.env.RPC_BASE || "https://mainnet.base.org";
   const lifiApiKey = process.env.LIFI_API_KEY ?? "";
 
   const protocols: ProtocolEntry[] = [

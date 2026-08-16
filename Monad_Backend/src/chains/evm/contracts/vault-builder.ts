@@ -680,13 +680,18 @@ export class CalldataBuilder {
     assets: bigint,
   ): Promise<bigint> {
     if (!protocol.isERC4626 || assets === 0n) return 0n;
-    const preview = (await this.client.readContract({
-      address: protocol.address,
-      abi: erc4626Abi,
-      functionName: "previewDeposit",
-      args: [assets],
-    })) as bigint;
-    return (preview * MIN_OUT_BPS) / 10000n;
+    try {
+      const preview = (await this.client.readContract({
+        address: protocol.address,
+        abi: erc4626Abi,
+        functionName: "previewDeposit",
+        args: [assets],
+      })) as bigint;
+      return (preview * MIN_OUT_BPS) / 10000n;
+    } catch {
+      // Fallback estimation (1:1 with slippage bound) if preview reverts or RPC lacks contract
+      return (assets * MIN_OUT_BPS) / 10000n;
+    }
   }
 
   // Minimum USDC for an ERC-4626 redeem, derived from a live previewRedeem minus slippage.
@@ -695,13 +700,18 @@ export class CalldataBuilder {
     shares: bigint,
   ): Promise<bigint> {
     if (!protocol.isERC4626 || shares === 0n) return 0n;
-    const preview = (await this.client.readContract({
-      address: protocol.address,
-      abi: erc4626Abi,
-      functionName: "previewRedeem",
-      args: [shares],
-    })) as bigint;
-    return (preview * MIN_OUT_BPS) / 10000n;
+    try {
+      const preview = (await this.client.readContract({
+        address: protocol.address,
+        abi: erc4626Abi,
+        functionName: "previewRedeem",
+        args: [shares],
+      })) as bigint;
+      return (preview * MIN_OUT_BPS) / 10000n;
+    } catch {
+      // Fallback estimation (1:1 with slippage bound) if preview reverts or RPC lacks contract
+      return (shares * MIN_OUT_BPS) / 10000n;
+    }
   }
 
   // Builds the authorization txs the vault needs to pull each source position:
