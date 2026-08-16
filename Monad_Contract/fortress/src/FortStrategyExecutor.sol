@@ -23,7 +23,23 @@ contract FortStrategyExecutor is
 {
     using SafeERC20 for IERC20;
 
-    uint8 public constant MAX_STEPS = 30;
+    /// @notice Maximum steps in one strategy.
+    /// @dev Phase 3 (Monad): reduced 30 -> 10, derived from measurement, not inherited.
+    ///
+    ///      Monad charges on `gas_limit`, not `gas_used`, so this is an ECONOMIC bound
+    ///      as much as a DoS bound. A live li.quest quote put a single real swap on
+    ///      chain 143 at 2,161,475 gas, so worst-case total ≈ overhead(n) + n×2.16M:
+    ///
+    ///        n=10 -> ~23.0M    n=13 -> ~29.9M    n=30 -> ~69.2M
+    ///
+    ///      The Monad gas docs state a 30M per-transaction cap (RESEARCH.md §8.2 marks
+    ///      it UNRESOLVED — the RPC accepts up to the 150M block limit and exposes no
+    ///      30M cap). 10 is safe under BOTH readings: ~23% headroom if the cap is 30M,
+    ///      and it holds worst-case user cost near 2.3 MON instead of 6.9 MON if it is
+    ///      not. Realistic strategies are 2-5 steps.
+    ///
+    ///      Full derivation and the measured curve: docs/gas-model.md §6.
+    uint8 public constant MAX_STEPS = 10;
 
     mapping(uint8 => address) public adapters;
     uint8[] public adapterIds;
@@ -129,7 +145,31 @@ contract FortStrategyExecutor is
                 IERC20(steps[i].tokenIn).safeTransfer(adapter, amount);
             }
 
-            // Snapshot balances AFTER transfer for accurate delta verification
+            // Snapshot balances AFTER transfer for accurate delta verification.
+            //
+            // Phase 3 (Monad): this scan is O(i) per step, hence O(n^2) overall, and
+            // measurement showed it dominates at high step counts — each extra step
+            // adds ~2,333 gas to every later step's marginal cost, against a measured
+            // warm `balanceOf` of 2,170 (docs/gas-model.md).
+            //
+            // Two savings applied, both provably semantics-preserving:
+            //
+            //   1. A tokenOut equal to `inputToken` or to this step's `tokenIn` is
+            //      resolved by the two dedicated branches below, which take priority
+            //      over the array scan. Snapshotting such entries is dead work.
+            // A duplicate-skipping variant was implemented and MEASURED in Phase 3,
+            // then REVERTED: detecting duplicates needs a nested scan, which is
+            // itself O(i^2) per step. On the all-distinct-token worst case it finds
+            // nothing and costs 4,953,653 gas at n=30 versus 4,397,816 for the code
+            // below — 12.6% WORSE. Do not reintroduce it without re-measuring.
+            //
+            // The remaining O(n^2) is inherent to the current `Step` interface: the
+            // delta check needs `tokenOut`'s balance from BEFORE the adapter call,
+            // and `tokenOut` is only known AFTER it returns, so every candidate must
+            // be snapshotted up front. Removing it requires `Step` to declare its
+            // expected `tokenOut` — an ABI change, deferred to the operator
+            // (docs/gas-model.md §5). Do NOT substitute an absolute-balance check;
+            // that was an explicit audit finding.
             uint256 inputSnap = IERC20(inputToken).balanceOf(address(this));
             uint256 tokenInSnap = IERC20(steps[i].tokenIn).balanceOf(address(this));
             uint256[] memory prevOutSnaps = new uint256[](i);
