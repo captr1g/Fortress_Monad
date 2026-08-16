@@ -42,6 +42,10 @@ export class AaveAdapter implements ApyAdapter {
     private readonly poolAddresses: Record<number, Address>,
   ) { }
 
+  supportsChain(chainId: number): boolean {
+    return this.poolAddresses[chainId] !== undefined;
+  }
+
   async getRatesBatch(
     markets: Market[],
     chainId: number,

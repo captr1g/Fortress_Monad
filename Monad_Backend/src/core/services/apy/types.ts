@@ -29,6 +29,14 @@ export interface ApyAdapter {
     markets: Market[],
     chainId: number,
   ): Promise<Map<string, MarketRates>>;
+  /**
+   * Whether this adapter can serve the given chain at all. Distinguishes a
+   * permanent misconfiguration ("no Aave pool for chain 8453" — retrying will
+   * never help) from a transient RPC failure. The poller skips unsupported
+   * chains with one warning instead of burning the retry budget and printing a
+   * stack trace on every tick. Omit to mean "every chain".
+   */
+  supportsChain?(chainId: number): boolean;
 }
 
 export type ApyTermStatus = "ok" | "unavailable";

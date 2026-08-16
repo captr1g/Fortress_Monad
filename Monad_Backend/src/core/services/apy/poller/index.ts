@@ -19,6 +19,8 @@ type PollerState = {
 };
 
 let timer: ReturnType<typeof setInterval> | null = null;
+// "protocol:chainId" keys already reported as unserviceable — see poll().
+const warnedUnsupported = new Set<string>();
 let state: PollerState = { lastPollAt: null, marketsPolled: 0, failedMarkets: 0 };
 
 export function getPollerState(): PollerState {
@@ -58,6 +60,24 @@ async function poll(deps: PollerDeps): Promise<void> {
     const adapter = adapters.get(protocol as Protocol);
 
     if (!adapter) {
+      failed += batch.length;
+      continue;
+    }
+
+    // A chain the adapter has no configuration for is a permanent condition,
+    // not a flaky call — retrying it every tick just prints the same stack
+    // trace forever. This is what stale market_registry rows from a previous
+    // chain look like (see migration 009_monad_markets.sql); warn once per
+    // process so the cause is visible, then stay quiet.
+    if (adapter.supportsChain && !adapter.supportsChain(chainId)) {
+      if (!warnedUnsupported.has(key)) {
+        warnedUnsupported.add(key);
+        console.warn(
+          `[apy-poller] Skipping ${batch.length} market(s) for "${key}" — ` +
+          `the ${protocol} adapter has no configuration for chain ${chainId}. ` +
+          `If these are rows from a previous chain, run: npm run migrate`,
+        );
+      }
       failed += batch.length;
       continue;
     }
