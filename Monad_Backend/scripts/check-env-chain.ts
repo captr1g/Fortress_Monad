@@ -84,6 +84,25 @@ function scan(file: string): Finding[] {
       return;
     }
 
+    // localhost and 127.0.0.1 are already allowed unconditionally by
+    // server.ts, so a CORS list containing nothing else is pure leftover — and
+    // because a later env file REPLACES this value rather than merging, one
+    // stale localhost-only line silently blocks the real frontend. The browser
+    // reports only "blocked by CORS policy", which names neither cause nor fix.
+    if (key === "CORS_ALLOWED_ORIGINS" && value) {
+      const entries = value.split(",").map((o) => o.trim()).filter(Boolean);
+      const onlyLocal = entries.every((o) => /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(o));
+      if (onlyLocal) {
+        findings.push({
+          line: i + 1, key, value,
+          problem: "localhost-only — already allowed by default, so this adds nothing " +
+                   "and overrides any origin set in an earlier env file",
+          fix: "list your public frontend origin, e.g. CORS_ALLOWED_ORIGINS=https://fortress.bhattdev.in",
+        });
+        return;
+      }
+    }
+
     if (key === "FORTRESS_CHAIN_ID" && value && !MONAD_CHAIN_IDS.has(value)) {
       findings.push({
         line: i + 1, key, value,

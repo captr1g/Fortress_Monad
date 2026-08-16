@@ -122,7 +122,15 @@ services:
         NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID:-}
         NEXT_PUBLIC_MONAD_RPC_URL: ${NEXT_PUBLIC_MONAD_RPC_URL:-https://rpc.monad.xyz}
         NEXT_PUBLIC_MONAD_TESTNET_RPC_URL: ${NEXT_PUBLIC_MONAD_TESTNET_RPC_URL:-https://testnet-rpc.monad.xyz}
-        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-http://localhost:3000}
+        # Inlined into the JS bundle at build time, and resolveBase() in
+        # packages/core/api/client.ts checks it BEFORE its own
+        # "https://api.<current-hostname>" fallback. So a wrong value here is
+        # not merely a default — it actively defeats the logic that would have
+        # worked. Baking in localhost is what made the deployed frontend call
+        # http://localhost:3000. Set this to the API origin for the environment
+        # you are building for, or leave it EMPTY to let the hostname fallback
+        # derive api.<host> on its own.
+        NEXT_PUBLIC_API_BASE: ${NEXT_PUBLIC_API_BASE:-https://api.fortress.bhattdev.in}
         BACKEND_API_ORIGIN: ${BACKEND_API_ORIGIN:-http://backend:3000}
     container_name: fortress-frontend
     restart: unless-stopped

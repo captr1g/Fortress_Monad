@@ -21,26 +21,66 @@ export async function createServer(
 ): Promise<FastifyInstance> {
   const app = Fastify({ logger: false });
 
-  // CORS: allowlist production domain, Vercel preview deploys, and localhost.
-  // Extend via CORS_EXTRA_ORIGINS (comma-separated) for additional origins.
-  // Does NOT fall back to permissive — unrecognized origins are rejected.
-  const extraOrigins = (process.env.CORS_EXTRA_ORIGINS ?? "")
-    .split(",")
+  // CORS: allowlist the known production domains, Vercel preview deploys, and
+  // localhost. Does NOT fall back to permissive — unrecognized origins are
+  // rejected.
+  //
+  // Both variable names are accepted. The code only ever read
+  // CORS_EXTRA_ORIGINS, while .env.example, every deployed .env and the compose
+  // files all set CORS_ALLOWED_ORIGINS — so the configured origins were being
+  // silently discarded and any host outside the hardcoded list got a CORS
+  // failure with no clue why. Requests are sent with `credentials: "include"`,
+  // so a rejected origin fails the whole call, not just cookie propagation.
+  const configuredOrigins = [
+    process.env.CORS_ALLOWED_ORIGINS ?? "",
+    process.env.CORS_EXTRA_ORIGINS ?? "",
+  ]
+    .flatMap((v) => v.split(","))
     .map((o) => o.trim())
     .filter(Boolean);
+
+  // `*` is documented in .env.example as "or * for dev". It cannot be served as
+  // a literal `Access-Control-Allow-Origin: *` here — browsers reject that
+  // combined with credentials — so it means "echo whatever origin asked".
+  const allowAny = configuredOrigins.includes("*");
 
   const allowedOriginPatterns: RegExp[] = [
     /^https:\/\/app\.fortress\.exchange$/,
     /^https:\/\/[a-z0-9-]+\.vercel\.app$/,
     /^https?:\/\/localhost:\d+$/,
-    ...extraOrigins.map((o) => new RegExp(`^${o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`)),
+    /^https?:\/\/127\.0\.0\.1:\d+$/,
+    ...configuredOrigins
+      .filter((o) => o !== "*")
+      .map((o) => new RegExp(`^${o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`)),
   ];
+
+  if (allowAny) {
+    console.warn(
+      "[cors] '*' configured — every origin will be accepted WITH credentials. " +
+      "Never run a public deployment this way.",
+    );
+  } else {
+    const extra = configuredOrigins.length
+      ? configuredOrigins.join(", ")
+      : "(none configured)";
+    console.log(`[cors] Allowing localhost, *.vercel.app, app.fortress.exchange, ${extra}`);
+  }
 
   await app.register(cors, {
     origin: (origin, cb) => {
       // No Origin header (curl, server-to-server, same-origin) — allow.
       if (!origin) return cb(null, true);
+      if (allowAny) return cb(null, true);
       const ok = allowedOriginPatterns.some((re) => re.test(origin));
+      // A blocked origin is almost always a missing CORS_ALLOWED_ORIGINS entry,
+      // and the browser-side error ("CORS policy") names neither the origin nor
+      // the fix. Say it here, where someone can act on it.
+      if (!ok) {
+        console.warn(
+          `[cors] Rejected origin ${origin}. Add it to CORS_ALLOWED_ORIGINS ` +
+          `(comma-separated) if this is a legitimate frontend.`,
+        );
+      }
       cb(null, ok);
     },
     credentials: true,
