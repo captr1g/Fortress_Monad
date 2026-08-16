@@ -1,6 +1,13 @@
 .agents/
 skills-lock.json
-.env
 AGENT_HANDOFF.md
+
+# Anything env-shaped. The bare `.env` rule that used to be here matched only
+# that exact name, so live-secret files like `.env.bak.1786883074` and
+# `.env.pre-monad-backup` sat untracked-but-committable — one `git add -A` from
+# publishing an OpenAI key and the production Postgres/Redis credentials.
+.env
+.env.*
+!.env.example
 node_modules/
 nginx.conf.example

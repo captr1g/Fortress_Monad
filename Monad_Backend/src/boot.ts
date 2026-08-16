@@ -12,7 +12,7 @@ import {
   MONAD_TESTNET_CHAIN_ID,
   MONAD_DEFAULT_RPC,
 } from "./chains/evm/config/monad.js";
-import { verifyProtocolInvariants } from "./chains/evm/config/invariants.js";
+import { verifyProtocolInvariants, verifyChainIdentity } from "./chains/evm/config/invariants.js";
 
 import { Planner } from "./core/planner/planner.js";
 import { YieldDomain } from "./domains/yield/index.js";
@@ -112,6 +112,30 @@ async function main(): Promise<void> {
 
   // --- Core Services ---
   const monadChainConfig = loadMonadConfig();
+
+  // Verify the configured chain IS the chain the RPC serves, and that every
+  // configured address actually exists on it. Runs before the protocol
+  // invariant below because that one reads the vault's registry and passes
+  // happily on a config that mixes chains — see verifyChainIdentity's comment.
+  const identity = await verifyChainIdentity(monadChainConfig);
+  if (identity.skipped) {
+    console.log("[chain-identity] Skipped (no RPC configured).");
+  } else if (!identity.ok) {
+    console.error(
+      `[FATAL] Chain configuration does not match ${monadChainConfig.rpcUrl}:`,
+    );
+    for (const e of identity.errors) console.error(`  - ${e}`);
+    console.error(
+      "\n  Leave these unset in .env to use the verified Monad defaults in\n" +
+      "  src/chains/evm/config/monad.ts. Refusing to start rather than build\n" +
+      "  transactions against addresses that do not exist.",
+    );
+    process.exit(1);
+  } else {
+    console.log(
+      `[chain-identity] Verified against ${monadChainConfig.rpcUrl} (chain ${monadChainConfig.chainId}).`,
+    );
+  }
 
   // Verify backend protocol addresses match on-chain vault registry
   const invariantResult = await verifyProtocolInvariants(monadChainConfig);

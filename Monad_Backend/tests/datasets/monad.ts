@@ -6,6 +6,7 @@
 // Monad_Contract/Fortress/ADDRESSES.md. Nothing here is a Base address.
 
 export const MONAD_CHAIN_ID = 143;
+export const MONAD_TESTNET_CHAIN_ID = 10143;
 export const MONAD_CHAIN_KEY = "monad";
 
 // Canonical Monad token addresses (checksummed, as registered in boot.ts).
