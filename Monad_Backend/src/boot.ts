@@ -260,12 +260,10 @@ async function main(): Promise<void> {
   registerSavedStrategiesRoutes(app, savedStrategiesService, yieldRedis, analytics);
 
   // --- Auth ---
-  if (process.env.APY_REDIS_URL) {
-    const { Redis } = await import("ioredis");
-    const redis = new Redis(process.env.APY_REDIS_URL, {
-      maxRetriesPerRequest: 3,
-      lazyConnect: false,
-    });
+  // Reuses the shared cluster-aware client from connectRedis. A second plain
+  // client here would break against sharded Redis (MOVED redirects).
+  if (yieldRedis) {
+    const redis = yieldRedis;
     registerAuthRoutes(app, redis, analytics);
     console.log("[auth] Routes registered");
 

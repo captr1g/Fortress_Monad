@@ -20,6 +20,5 @@
     "@walletconnect/universal-provider": "2.21.10",
     "viem": "2.x",
     "valtio": "2.1.8"
-  },
-  "packageManager": "npm@11.12.1"
+  }
 }

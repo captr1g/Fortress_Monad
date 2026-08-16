@@ -66,28 +66,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const effectiveStatus: Status =
     status === "authenticated" && !effectiveAddress ? "unauthenticated" : status;
 
+  const isSigningInRef = useRef(false);
+
   // The actual SIWE handshake: request a nonce, sign it with the wallet, hand
   // the signature to the backend. No confirmation screen in between — once
   // the wallet address is known, this goes straight to the wallet's own
   // signature prompt, which already tells the user what they're signing.
   const completeSignIn = useCallback(async () => {
+    if (!address || isSigningInRef.current) return;
+    isSigningInRef.current = true;
     setIsAuthenticating(true);
     try {
-      const { nonce } = await fortressApi.requestNonce(address!);
-      const signature = await signMessageAsync({ message: siweMessage(nonce, address!) });
-      await fortressApi.verifySignature(address!, signature);
+      const normalizedAddress = address.toLowerCase();
+      const { nonce } = await fortressApi.requestNonce(normalizedAddress);
+      const signature = await signMessageAsync({ message: siweMessage(nonce, normalizedAddress) });
+      await fortressApi.verifySignature(normalizedAddress, signature);
       setStatus("authenticated");
+      setSessionAddress(normalizedAddress);
     } catch (e) {
       console.error("[FortressAuth] Sign-in error:", e);
       toast.error(e instanceof Error ? e.message : "Sign-in failed");
     } finally {
+      isSigningInRef.current = false;
       setIsAuthenticating(false);
     }
   }, [address, signMessageAsync, toast]);
 
   useEffect(() => {
     // Automatically continue straight into the SIWE signature once a wallet
-    // connects, but ONLY if the user explicitly initiated a sign-in.
+    // connects, but ONLY if the user explicitly initiated a sign-in while disconnected.
     if (
       address &&
       status === "unauthenticated" &&
@@ -95,14 +102,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       address !== lastPromptedAddress.current
     ) {
       lastPromptedAddress.current = address;
-      close(); // forcefully close AppKit
       hasInitiatedSignIn.current = false;
+      close(); // forcefully close AppKit
       completeSignIn();
     }
 
     // Reset when disconnected
     if (!address) {
       lastPromptedAddress.current = null;
+      hasInitiatedSignIn.current = false;
     }
   }, [address, status, close, completeSignIn]);
 
@@ -123,11 +131,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async () => {
-    hasInitiatedSignIn.current = true;
+    if (isSigningInRef.current) return;
     if (!address) {
+      hasInitiatedSignIn.current = true;
       open();
       return;
     }
+    // Wallet is already connected; prevent the connection effect from double-triggering
+    hasInitiatedSignIn.current = false;
+    lastPromptedAddress.current = address;
     await completeSignIn();
   }, [address, open, completeSignIn]);
 

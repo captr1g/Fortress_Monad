@@ -10,6 +10,7 @@ import { TopBar } from "./TopBar";
 import { TokenIcon, ProtocolMark, NetworkIcon } from "./icons";
 import { WalletGate } from "@/components/auth/WalletGate";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
+import { getExplorerUrl, chainIdToNetwork } from "@/lib/chains";
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   monitoring: { label: "Monitoring", cls: "border-[#3b82f6]/25 bg-[#3b82f6]/10 text-[#60a5fa]" },
@@ -18,8 +19,6 @@ const STATUS: Record<string, { label: string; cls: string }> = {
   exited: { label: "Exited", cls: "border-line bg-line text-muted" },
   failed: { label: "Failed", cls: "border-[#ef4444]/25 bg-[#ef4444]/10 text-[#ef4444]" },
 };
-
-const BASESCAN = "https://basescan.org";
 
 function usd(value: string) {
   const n = Number.parseFloat(value);
@@ -88,12 +87,12 @@ function Detail({ strategy }: { strategy: StrategyDetailType }) {
         </div>
         {strategy.txHashes[0] && (
           <a
-            href={`${BASESCAN}/tx/${strategy.txHashes[0]}`}
+            href={getExplorerUrl(strategy.chainId ?? 143, strategy.txHashes[0])}
             target="_blank"
             rel="noreferrer"
             className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-4 text-[13px] font-medium text-fg-soft transition-colors hover:bg-surface-2"
           >
-            View on Basescan ↗
+            View on Explorer ↗
           </a>
         )}
       </div>
@@ -276,7 +275,7 @@ function RightPanel({ strategy, startingToken }: { strategy: StrategyDetailType;
 
       {tab === "Overview" && <Overview strategy={strategy} startingToken={startingToken} />}
       {tab === "Strategy prompt" && <PromptTab strategy={strategy} />}
-      {tab === "Activity" && <ActivityTab events={strategy.history} />}
+      {tab === "Activity" && <ActivityTab events={strategy.history} chainId={strategy.chainId} />}
     </section>
   );
 }
@@ -379,8 +378,8 @@ function StrategyFlow({ strategy, startingToken }: { strategy: StrategyDetailTyp
   return (
     <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface-2">
       <div className="flex items-center gap-2 border-b border-line-soft bg-surface px-4 py-3">
-        <NetworkIcon network={strategy.chainId === 8453 ? "base" : "mainnet"} size={18} />
-        <span className="text-[12.5px] font-semibold">{strategy.chainId === 8453 ? "Base" : "Ethereum"}</span>
+        <NetworkIcon network={chainIdToNetwork(strategy.chainId)} size={18} />
+        <span className="text-[12.5px] font-semibold">{strategy.chainId === 8453 ? "Base" : (strategy.chainId === 1 ? "Ethereum" : "Monad")}</span>
         <span className="mono ml-auto text-[11.5px] text-faint">{strategy.steps.length} actions</span>
       </div>
 
@@ -457,7 +456,7 @@ function PromptTab({ strategy }: { strategy: StrategyDetailType }) {
   );
 }
 
-function ActivityTab({ events }: { events: StrategyDetailType["history"] }) {
+function ActivityTab({ events, chainId = 143 }: { events: StrategyDetailType["history"]; chainId?: number }) {
   const sorted = [...events].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   return (
     <div className="rounded-2xl border border-line-soft bg-surface p-5" style={{ animation: "ffadein .25s ease both" }}>
@@ -474,7 +473,7 @@ function ActivityTab({ events }: { events: StrategyDetailType["history"] }) {
                 <div className="mono mt-0.5 flex items-center gap-2 text-[11px] text-faint">
                   <span>{new Date(e.at).toLocaleString()}</span>
                   {e.txHash && (
-                    <a href={`${BASESCAN}/tx/${e.txHash}`} target="_blank" rel="noreferrer" className="text-muted transition-colors hover:text-green-bright">
+                    <a href={getExplorerUrl(chainId, e.txHash)} target="_blank" rel="noreferrer" className="text-muted transition-colors hover:text-green-bright">
                       {shortHash(e.txHash)} ↗
                     </a>
                   )}

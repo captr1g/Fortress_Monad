@@ -96,7 +96,7 @@ function resolveBase(override?: string): string {
 
 /** The exact message the backend expects the wallet to sign (verify.ts). */
 export function siweMessage(nonce: string, address: string): string {
-  return `Sign in to Fortress\n\nNonce: ${nonce}\nAddress: ${address}`;
+  return `Sign in to Fortress\n\nNonce: ${nonce}\nAddress: ${address.toLowerCase()}`;
 }
 
 async function request<T>(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useAccount, useBalance, useReadContracts } from "wagmi";
+import { useAccount, useBalance, useChainId, useReadContracts } from "wagmi";
 import { base } from "@reown/appkit/networks";
 import { erc20Abi, formatUnits } from "viem";
 
@@ -282,10 +282,11 @@ export const BASE_TOKENS: TokenDef[] = [
   },
 ];
 
-// CoinGecko IDs we need — ETH + all ERC-20s (vault shares are priced via
+// CoinGecko IDs we need — ETH, MON + all ERC-20s (vault shares are priced via
 // their own exchange rate, not a direct CoinGecko listing).
 const ALL_COINGECKO_IDS = [
   "ethereum",
+  "monad",
   ...BASE_TOKENS.map((t) => t.coingeckoId).filter((id): id is string => !!id),
 ];
 
@@ -310,15 +311,15 @@ async function fetchPrices(ids: string[]): Promise<PriceMap> {
       "https://api.coingecko.com/api/v3/simple/price?vs_currencies=usd&ids=" +
       ids.join(",");
     const res = await fetch(url);
-    if (!res.ok) return {};
+    if (!res.ok) return { monad: 0.021 };
     const json = await res.json();
-    const map: PriceMap = {};
+    const map: PriceMap = { monad: 0.021 };
     for (const [id, data] of Object.entries(json)) {
       map[id] = (data as { usd: number }).usd;
     }
     return map;
   } catch {
-    return {};
+    return { monad: 0.021 };
   }
 }
 
@@ -327,7 +328,7 @@ async function fetchPrices(ids: string[]): Promise<PriceMap> {
 export interface LiveAsset {
   symbol: string;
   name: string;
-  /** "native" for ETH, token address for ERC-20s */
+  /** "native" for ETH/MON, token address for ERC-20s */
   address: string;
   decimals: number;
   balance: number;
@@ -356,29 +357,34 @@ export interface UseWalletAssetsResult {
 
 export function useWalletAssets(): UseWalletAssetsResult {
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
 
-  // ── 1. Native ETH balance ──
+  const isMonadChain = chainId === 10143 || chainId === 143;
+  const activeChainId = isMonadChain ? chainId : base.id;
+
+  // ── 1. Native balance (MON on Monad, ETH on Base) ──
   const {
-    data: ethData,
-    isLoading: ethLoading,
-    isError: ethError,
-    refetch: refetchEth,
+    data: nativeData,
+    isLoading: nativeLoading,
+    isError: nativeError,
+    refetch: refetchNative,
   } = useBalance({
     address,
-    chainId: base.id,
+    chainId: activeChainId,
     query: { enabled: !!address },
   });
 
   // ── 2. All ERC-20 balances, plus each vault's exchange rate, in one multicall ──
-  const vaultTokens = BASE_TOKENS.filter((t) => t.vault);
+  const activeTokens = isMonadChain ? [] : BASE_TOKENS;
+  const vaultTokens = activeTokens.filter((t) => t.vault);
 
   const contracts = [
-    ...BASE_TOKENS.map((token) => ({
+    ...activeTokens.map((token) => ({
       address: token.address,
       abi: erc20Abi,
       functionName: "balanceOf",
       args: [address as `0x${string}`],
-      chainId: base.id,
+      chainId: activeChainId,
     })),
     // Value of one whole share, in underlying-asset units — independent of
     // the user's balance, so it can sit in the same batch as the balance
@@ -388,7 +394,7 @@ export function useWalletAssets(): UseWalletAssetsResult {
       abi: ERC4626_ABI,
       functionName: "convertToAssets",
       args: [BigInt(10) ** BigInt(token.decimals)],
-      chainId: base.id,
+      chainId: activeChainId,
     })),
   ];
 
@@ -400,7 +406,7 @@ export function useWalletAssets(): UseWalletAssetsResult {
   } = useReadContracts({
     contracts,
     query: {
-      enabled: !!address,
+      enabled: !!address && contracts.length > 0,
       // Force a fresh on-chain read every time refetch() is called (after a
       // deploy/withdraw mutation). Without this, React Query may serve the
       // stale cached zero-balance for newly-minted tokens like Pendle PT.
@@ -409,7 +415,7 @@ export function useWalletAssets(): UseWalletAssetsResult {
   });
 
   // ── 3. Prices from CoinGecko ──
-  const [prices, setPrices] = useState<PriceMap>({});
+  const [prices, setPrices] = useState<PriceMap>({ monad: 0.021 });
   const [isPricePending, setIsPricePending] = useState(true);
 
   useEffect(() => {
@@ -433,36 +439,53 @@ export function useWalletAssets(): UseWalletAssetsResult {
     };
   }, []);
 
-  // Re-read on-chain balances (ETH + all ERC-20s + vault rates) and refresh
+  // Re-read on-chain balances (ETH/MON + all ERC-20s + vault rates) and refresh
   // prices. Balances come from the chain directly, so unlike Morpho positions
   // there's no indexer lag — a single refetch after a mutation is accurate.
   const refetch = useCallback(() => {
-    refetchEth();
+    refetchNative();
     refetchTokens();
-    fetchPrices(ALL_COINGECKO_IDS).then((map) => setPrices(map)).catch(() => { });
-  }, [refetchEth, refetchTokens]);
+    fetchPrices(ALL_COINGECKO_IDS)
+      .then((map) => setPrices(map))
+      .catch(() => {});
+  }, [refetchNative, refetchTokens]);
 
   // ── 4. Assemble assets ──
-  const isLoading = ethLoading || tokensLoading;
-  const isError = ethError || tokensError;
+  const isLoading = nativeLoading || (contracts.length > 0 && tokensLoading);
+  const isError = nativeError || (contracts.length > 0 && tokensError);
 
   if (!isConnected || !address || isLoading) {
-    return { assets: [], protocolAssets: [], totalUsd: 0, isLoading, isError: false, isPricePending, refetch };
+    return {
+      assets: [],
+      protocolAssets: [],
+      totalUsd: 0,
+      isLoading,
+      isError: false,
+      isPricePending,
+      refetch,
+    };
   }
 
   const assets: LiveAsset[] = [];
   const protocolAssets: LiveAsset[] = [];
 
-  // Native ETH
-  if (ethData) {
-    const balance = parseFloat(formatUnits(ethData.value, 18));
+  // Native token (MON on Monad, ETH on Base)
+  if (nativeData) {
+    const balance = parseFloat(
+      formatUnits(nativeData.value, nativeData.decimals),
+    );
     if (balance > 0.000001) {
-      const priceUsd = prices["ethereum"] ?? 0;
+      const isMon = isMonadChain;
+      const symbol = isMon ? "MON" : "ETH";
+      const name = isMon ? "Monad" : "Ether";
+      const priceUsd = isMon
+        ? (prices["monad"] ?? 0.021)
+        : (prices["ethereum"] ?? 0);
       assets.push({
-        symbol: "ETH",
-        name: "Ether",
+        symbol,
+        name,
         address: "native",
-        decimals: 18,
+        decimals: nativeData.decimals,
         balance,
         priceUsd,
         valueUsd: balance * priceUsd,
@@ -470,9 +493,8 @@ export function useWalletAssets(): UseWalletAssetsResult {
     }
   }
 
-  // ERC-20s (balances are the first BASE_TOKENS.length entries in tokenData;
-  // vault exchange rates follow, in vaultTokens order)
-  BASE_TOKENS.forEach((token, i) => {
+  // ERC-20s
+  activeTokens.forEach((token, i) => {
     const result = tokenData?.[i];
     if (result?.status !== "success") return;
     const raw = result.result as bigint;
@@ -481,10 +503,18 @@ export function useWalletAssets(): UseWalletAssetsResult {
 
     let priceUsd = 0;
     if (token.vault) {
-      const rateResult = tokenData?.[BASE_TOKENS.length + vaultTokens.indexOf(token)];
+      const rateResult =
+        tokenData?.[activeTokens.length + vaultTokens.indexOf(token)];
       if (rateResult?.status === "success") {
-        const oneShareInUnderlying = parseFloat(formatUnits(rateResult.result as bigint, token.vault.underlyingDecimals));
-        priceUsd = oneShareInUnderlying * (prices[token.vault.underlyingCoingeckoId] ?? 0);
+        const oneShareInUnderlying = parseFloat(
+          formatUnits(
+            rateResult.result as bigint,
+            token.vault.underlyingDecimals,
+          ),
+        );
+        priceUsd =
+          oneShareInUnderlying *
+          (prices[token.vault.underlyingCoingeckoId] ?? 0);
       }
     } else {
       priceUsd = prices[token.coingeckoId ?? ""] ?? 0;
@@ -501,9 +531,6 @@ export function useWalletAssets(): UseWalletAssetsResult {
       protocolName: token.protocolName,
     };
 
-    // Protocol tokens (e.g. mwUSDC vault shares) are computed the same way
-    // but routed to their own array — callers show them in a dedicated
-    // "Protocol Tokens" section instead of the plain wallet list.
     if (PROTOCOL_TOKEN_ADDRESSES.has(token.address.toLowerCase())) {
       protocolAssets.push(asset);
     } else {
@@ -516,5 +543,13 @@ export function useWalletAssets(): UseWalletAssetsResult {
 
   const totalUsd = assets.reduce((s, a) => s + a.valueUsd, 0);
 
-  return { assets, protocolAssets, totalUsd, isLoading: false, isError, isPricePending, refetch };
+  return {
+    assets,
+    protocolAssets,
+    totalUsd,
+    isLoading: false,
+    isError,
+    isPricePending,
+    refetch,
+  };
 }

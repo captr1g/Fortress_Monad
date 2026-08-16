@@ -1,7 +1,7 @@
 import { verifyMessage } from "viem";
 
 export function buildAuthMessage(nonce: string, address: string): string {
-  return `Sign in to Fortress\n\nNonce: ${nonce}\nAddress: ${address}`;
+  return `Sign in to Fortress\n\nNonce: ${nonce}\nAddress: ${address.toLowerCase()}`;
 }
 
 export async function recoverAndVerify(

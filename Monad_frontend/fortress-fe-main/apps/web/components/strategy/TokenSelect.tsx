@@ -4,7 +4,41 @@ import { useState, useRef, useEffect } from "react";
 import { useAccount, useBalance } from "wagmi";
 import { TokenIcon, NetworkIcon } from "./icons";
 
+const formatDisplayAddress = (addr?: string | null) =>
+  addr && addr.length > 10 ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : "";
+
+const monadUsdcAddress = (process.env.NEXT_PUBLIC_MONAD_USDC_ADDRESS || null) as `0x${string}` | null;
+const monadWmonAddress = (process.env.NEXT_PUBLIC_MONAD_WMON_ADDRESS || null) as `0x${string}` | null;
+const monadWethAddress = (process.env.NEXT_PUBLIC_MONAD_WETH_ADDRESS || null) as `0x${string}` | null;
+
 const TOKENS = [
+  {
+    symbol: "USDC.e",
+    name: "USDC.e (Monad)",
+    address: monadUsdcAddress,
+    displayAddress: formatDisplayAddress(monadUsdcAddress),
+    network: "monad",
+    decimals: 6,
+    disabled: false,
+  },
+  {
+    symbol: "WMON",
+    name: "Wrapped MON",
+    address: monadWmonAddress,
+    displayAddress: formatDisplayAddress(monadWmonAddress),
+    network: "monad",
+    decimals: 18,
+    disabled: false,
+  },
+  {
+    symbol: "WETH",
+    name: "Wrapped Ether (Monad)",
+    address: monadWethAddress,
+    displayAddress: formatDisplayAddress(monadWethAddress),
+    network: "monad",
+    decimals: 18,
+    disabled: !monadWethAddress,
+  },
   {
     symbol: "USDC",
     name: "USD Coin",
@@ -59,12 +93,12 @@ export function tokenAddressForSymbol(symbol: string): `0x${string}` | undefined
 }
 
 const CHAINS = [
+  { id: "monad", name: "Monad", color: "bg-[#836EF9]", disabled: false },
   { id: "base", name: "Base", color: "bg-[#0052FF]", disabled: false },
   { id: "mainnet", name: "Ethereum", color: "bg-[#627EEA]", disabled: true },
   { id: "optimism", name: "Optimism", color: "bg-[#FF0420]", disabled: true },
   { id: "arbitrum", name: "Arbitrum", color: "bg-[#28A0F0]", disabled: true },
   { id: "bsc", name: "BSC", color: "bg-[#F3BA2F]", disabled: true },
-  { id: "monad", name: "Monad", color: "bg-[#836EF9]", disabled: true },
 ];
 
 function getNetworkBadgeColor(network: string) {
@@ -74,24 +108,26 @@ function getNetworkBadgeColor(network: string) {
 
 // Fetches and formats a single token balance for the connected wallet.
 function useTokenBalance(token: (typeof TOKENS)[number]) {
-  const { address } = useAccount();
+  const { address, chainId: currentChainId } = useAccount();
+  const tokenChainId = token.network === "monad" ? (currentChainId === 10143 ? 10143 : 143) : 8453;
 
-  // ETH native balance
-  const { data: ethData } = useBalance({
+  // Native balance (ETH or MON)
+  const isNative = token.symbol === "ETH" || token.symbol === "MON";
+  const { data: nativeData } = useBalance({
     address,
-    chainId: 8453,
-    query: { enabled: !!address && token.symbol === "ETH" },
+    chainId: tokenChainId,
+    query: { enabled: !!address && isNative },
   });
 
   // ERC-20 balance
   const { data: erc20Data } = useBalance({
     address,
     token: token.address ?? undefined,
-    chainId: 8453,
+    chainId: tokenChainId,
     query: { enabled: !!address && token.address !== null },
   });
 
-  const data = token.symbol === "ETH" ? ethData : erc20Data;
+  const data = isNative ? nativeData : erc20Data;
   if (!address || !data) return { balance: null, balanceUsd: null };
 
   const amount = Number(data.formatted);

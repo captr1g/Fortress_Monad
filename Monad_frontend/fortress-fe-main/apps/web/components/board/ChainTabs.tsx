@@ -1,6 +1,7 @@
 "use client";
 
 const CHAINS = [
+  { id: "monad", name: "Monad", live: true },
   { id: "base", name: "Base", live: true },
   { id: "bnb", name: "BNB Chain", live: false },
   { id: "sui", name: "Sui", live: false },

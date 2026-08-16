@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useAccount } from "wagmi";
+import { useAccount, useChainId } from "wagmi";
 import { motion } from "framer-motion";
 import { TokenIcon, NetworkIcon, ProtocolMark } from "@/components/strategy/icons";
 import { riseIn } from "@/lib/motion";
+import { chainIdToNetwork } from "@/lib/chains";
 import { useWalletAssets, type LiveAsset } from "./useWalletAssets";
 import { useMorphoPositions, type MorphoPosition } from "./useMorphoPositions";
 import { ExitModal } from "./ExitModal";
@@ -46,6 +47,7 @@ function hfColor(hf: number) {
 
 export function PortfolioContent() {
   const { address } = useAccount();
+  const chainId = useChainId();
   const { assets: walletAssets, protocolAssets, totalUsd: walletAssetsUsd, isLoading, isPricePending, refetch: refetchAssets } = useWalletAssets();
   const {
     positions,
@@ -161,11 +163,11 @@ export function PortfolioContent() {
           <ProtocolTokensSection assets={protocolAssets} isLoading={isLoading || isPricePending} walletAddress={address} onWithdrawSuccess={refreshAll} />
           <section>
             <div className="mb-4 flex items-center gap-2.5">
-              <NetworkIcon network="base" size={18} />
+              <NetworkIcon network={chainIdToNetwork(chainId)} size={18} />
               <h2 className="text-[14px] font-semibold">Wallet Assets</h2>
               <span className="mono rounded-full bg-line px-2 py-0.5 text-[11px] text-muted">{isLoading ? 0 : walletAssets.length}</span>
             </div>
-            <WalletAssetsPanel assets={walletAssets} totalUsd={walletAssetsUsd} isLoading={isLoading} isPricePending={isPricePending} />
+            <WalletAssetsPanel assets={walletAssets} totalUsd={walletAssetsUsd} isLoading={isLoading} isPricePending={isPricePending} network={chainIdToNetwork(chainId)} />
           </section>
         </motion.div>
       </div>
@@ -234,12 +236,16 @@ function WalletAssetsPanel({
   totalUsd,
   isLoading,
   isPricePending,
+  network,
 }: {
   assets: LiveAsset[];
   totalUsd: number;
   isLoading: boolean;
   isPricePending: boolean;
+  network?: string;
 }) {
+  const networkName = network === "monad" ? "Monad" : "Base";
+
   if (isLoading) {
     return (
       <div className="overflow-hidden rounded-2xl border border-line-soft bg-surface">
@@ -260,7 +266,7 @@ function WalletAssetsPanel({
   if (assets.length === 0) {
     return (
       <div className="flex h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-line bg-surface text-center">
-        <div className="text-[13px] text-muted">No assets found on Base</div>
+        <div className="text-[13px] text-muted">No assets found on {networkName}</div>
         <div className="mt-1 text-[12px] text-faint">Bridge or deposit funds to get started</div>
       </div>
     );

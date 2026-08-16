@@ -15,6 +15,7 @@ import { useSimulation, type Simulation } from "./useSimulation";
 import { PrimaryButton } from "@/components/ui/PrimaryButton";
 import { WalletGate } from "@/components/auth/WalletGate";
 import { PromptComposer } from "./PromptComposer";
+import { getExplorerUrl } from "@/lib/chains";
 
 export function StrategyResult({
   strategy,
@@ -232,7 +233,7 @@ export function DeployAction({
   };
 
   if (step === "deployed") {
-    return <DeploySuccessPanel txHashes={txHashes} onViewPortfolio={() => router.push("/portfolio?updated=1")} />;
+    return <DeploySuccessPanel txHashes={txHashes} chainId={strategy.chain === "base" ? 8453 : 143} onViewPortfolio={() => router.push("/portfolio?updated=1")} />;
   }
 
   return (
@@ -300,9 +301,11 @@ export function DeployAction({
 // real wallet/transaction — teammate feedback was on this exact view.
 export function DeploySuccessPanel({
   txHashes,
+  chainId = 143,
   onViewPortfolio,
 }: {
   txHashes: string[];
+  chainId?: number;
   onViewPortfolio: () => void;
 }) {
   const [copiedHash, setCopiedHash] = useState<string | null>(null);
@@ -326,7 +329,7 @@ export function DeploySuccessPanel({
         <div className="min-w-0">
           <div className="text-[14px] font-semibold text-fg">Strategy deployed</div>
           <div className="text-[12px] text-muted">
-            {txHashes.length} transaction{txHashes.length > 1 ? "s" : ""} confirmed on Base
+            {txHashes.length} transaction{txHashes.length > 1 ? "s" : ""} confirmed on {chainId === 8453 ? "Base" : "Monad"}
           </div>
         </div>
       </div>
@@ -335,7 +338,7 @@ export function DeploySuccessPanel({
         {txHashes.map((hash, i) => (
           <a
             key={hash}
-            href={`https://basescan.org/tx/${hash}`}
+            href={getExplorerUrl(chainId, hash)}
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center justify-between gap-3 rounded-lg border border-line-soft bg-surface-2 px-3 py-2.5 transition hover:border-line hover:bg-elevated"

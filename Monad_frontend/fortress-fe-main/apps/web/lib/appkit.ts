@@ -1,6 +1,6 @@
 import { createAppKit } from "@reown/appkit/react";
 import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
-import { base } from "@reown/appkit/networks";
+import { base, monad, monadTestnet } from "@reown/appkit/networks";
 import { http } from "wagmi";
 
 // Reown AppKit (WalletConnect) + wagmi adapter. Wallet-only — no email/socials,
@@ -20,29 +20,50 @@ if (!projectId) {
     "Get a free project ID at https://dashboard.reown.com and add it to\n" +
     "fortress-main/apps/web/.env.local — wallet connection will not work without it.",
   );
+
+  // The Reown/AppKit SDK makes two HTTP calls on init to validate the project
+  // ID against api.web3modal.org. With the placeholder ID those calls return
+  // 403, and the SDK's Analytics worker re-throws the error as an unhandled
+  // rejection. In Next.js 16 Turbopack dev mode, any unhandled rejection
+  // triggers the red error overlay — even when it comes from a third-party
+  // SDK and is entirely non-blocking for the app.
+  //
+  // Intercept those specific rejections on the client so they stay as console
+  // warnings and never reach Next.js's overlay handler.
+  if (typeof window !== "undefined") {
+    window.addEventListener("unhandledrejection", (event) => {
+      const msg = event.reason?.message ?? String(event.reason ?? "");
+      if (
+        msg.includes("Failed to fetch") ||
+        msg.includes("HTTP status code: 403") ||
+        msg.includes("AnalyticsSDKApiError")
+      ) {
+        event.preventDefault(); // swallow — prevents Next.js overlay
+      }
+    });
+  }
 }
 
-// Pin an explicit Base RPC transport. Without this, the adapter routes reads and
-// transaction preparation (nonce/gas/chainId) through WalletConnect's RPC
-// (rpc.walletconnect.org), which is projectId-gated and rate-limited — it 401s
-// and leaves viem unable to populate the tx, surfacing as `chain: undefined` and
-// a malformed raw tx the node rejects ("transaction could not be decoded").
-// Override with NEXT_PUBLIC_BASE_RPC_URL (a dedicated provider is recommended for
-// production); the public endpoint is a safe default for reads + tx prep.
+// Dedicated RPC transports for Base and Monad networks.
 const baseRpcUrl = process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org";
+const monadRpcUrl = process.env.NEXT_PUBLIC_MONAD_RPC_URL || "https://rpc.monad.xyz";
+const monadTestnetRpcUrl = process.env.NEXT_PUBLIC_MONAD_TESTNET_RPC_URL || "https://testnet-rpc.monad.xyz";
 
 export const wagmiAdapter = new WagmiAdapter({
-  networks: [base],
+  networks: [monad, monadTestnet, base],
   projectId: effectiveProjectId,
   ssr: true,
   transports: {
     [base.id]: http(baseRpcUrl),
+    [monad.id]: http(monadRpcUrl),
+    [monadTestnet.id]: http(monadTestnetRpcUrl),
   },
 });
 
 createAppKit({
   adapters: [wagmiAdapter],
-  networks: [base],
+  networks: [monad, monadTestnet, base],
+  defaultNetwork: monad,
   projectId: effectiveProjectId,
   // Coinbase Wallet SDK's own telemetry beacon (cca-lite.coinbase.com) is
   // independent of `features.analytics` below and hangs when blocked by an

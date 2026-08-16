@@ -38,8 +38,9 @@ export function createRedisRateLimiter(
           .status(429)
           .send({ error: { stage: "api", message: "Too many requests" } });
       }
-    } catch {
+    } catch (err) {
       // Fail closed: if Redis is down, reject to prevent abuse
+      console.error("[rate-limit] redis error:", (err as Error)?.message ?? err);
       reply
         .status(503)
         .send({ error: { stage: "api", message: "Rate limiter unavailable" } });

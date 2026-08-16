@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { StrategyDetail } from "@fortress/core/types";
 import type { CatalogStrategy } from "@/lib/mockStrategies";
 import { TokenIcon, ProtocolMark, NetworkIcon } from "../strategy/icons";
+import { chainIdToNetwork } from "@/lib/chains";
 
 function usd(value: string) {
   const n = parseFloat(value);
@@ -76,7 +77,7 @@ export function CatalogCard({ strategy }: { strategy: StrategyDetail }) {
           </div>
         </Meta>
         <Meta label="Chain" end>
-          <NetworkIcon network={strategy.chainId === 8453 ? "base" : "mainnet"} size={18} />
+          <NetworkIcon network={chainIdToNetwork(strategy.chainId)} size={18} />
         </Meta>
       </div>
     </Link>

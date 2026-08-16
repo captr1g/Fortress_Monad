@@ -67,7 +67,9 @@ export async function createServer(
     );
   });
 
-  const { maxRequests = 60, windowMs = 60_000 } = config.rateLimit ?? {};
+  const isDev = process.env.NODE_ENV !== "production";
+  const defaultMax = isDev ? 2000 : 60;
+  const { maxRequests = defaultMax, windowMs = 60_000 } = config.rateLimit ?? {};
   // The plan-status poll is hit every couple seconds for the life of a plan
   // request (legitimately 1-3+ minutes for a complex strategy — see
   // pollPlanJob's comment), and shares this IP-wide bucket with every other
@@ -119,6 +121,7 @@ export async function createServer(
       });
     }
 
+    console.error("[server] unhandled error:", error);
     return reply.status(500).send({
       error: {
         stage: "api",

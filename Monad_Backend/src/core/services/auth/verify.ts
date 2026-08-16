@@ -5,7 +5,7 @@ import { type Address, verifyMessage } from "viem";
 const AUTH_MESSAGE_PREFIX = "Sign in to Fortress";
 
 export function buildAuthMessage(nonce: string, address: string): string {
-  return `${AUTH_MESSAGE_PREFIX}\n\nNonce: ${nonce}\nAddress: ${address}`;
+  return `${AUTH_MESSAGE_PREFIX}\n\nNonce: ${nonce}\nAddress: ${address.toLowerCase()}`;
 }
 
 export async function recoverAndVerify(

@@ -3,22 +3,90 @@ import type { StoredRates } from "../types.js";
 
 const CACHE_TTL_SECONDS = 120;
 const KEY_PREFIX = "apy:";
+const CONNECT_TIMEOUT_MS = 15_000;
+
+// The app must work against both a standalone Redis (local docker dev) and a
+// sharded cluster (e.g. Azure Managed Redis, which answers single-node
+// commands but replies MOVED for keys owned by other shards). We therefore
+// try the cluster client first and fall back to standalone. Everything —
+// host, port, password, TLS — comes from the connection URL.
+export type RedisClient = Redis;
 
 let client: Redis | null = null;
 
+function parseRedisUrl(url: string): {
+  host: string;
+  port: number;
+  password?: string;
+  tls?: { servername: string };
+} {
+  const parsed = new URL(url);
+  return {
+    host: parsed.hostname,
+    port: Number(parsed.port || 6379),
+    password: parsed.password ? decodeURIComponent(parsed.password) : undefined,
+    // "rediss://" = TLS. servername is required because the cluster client
+    // connects to nodes by resolved IP, and the certificate is issued for
+    // the hostname — without it TLS verification fails with
+    // ERR_TLS_CERT_ALTNAME_INVALID.
+    tls: parsed.protocol === "rediss:" ? { servername: parsed.hostname } : undefined,
+  };
+}
+
+function waitReady(instance: Redis, timeoutMs: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error("Redis connect timeout")),
+      timeoutMs,
+    );
+    instance.once("ready", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    instance.once("error", (err) => {
+      clearTimeout(timer);
+      reject(err);
+    });
+  });
+}
+
+async function createClient(url: string): Promise<Redis> {
+  const { host, port, password, tls } = parseRedisUrl(url);
+
+  try {
+    // Cluster client. Cast: the command surface used by this codebase
+    // (get/set/del/incr/expire/quit) is identical on Redis and Redis.Cluster.
+    const cluster = new Redis.Cluster([{ host, port }], {
+      redisOptions: { password, tls },
+      scaleReads: "all",
+    }) as unknown as Redis;
+    await waitReady(cluster, CONNECT_TIMEOUT_MS);
+    console.log(`[redis] Connected to cluster at ${host}:${port}`);
+    return cluster;
+  } catch (err) {
+    console.warn(
+      `[redis] Cluster connect failed (${(err as Error)?.message ?? err}); falling back to standalone`,
+    );
+  }
+
+  const standalone = new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true });
+  await standalone.connect();
+  console.log(`[redis] Connected to standalone Redis at ${host}:${port}`);
+  return standalone;
+}
+
 export function getRedis(url: string): Redis {
   if (!client) {
-    client = new Redis(url, { maxRetriesPerRequest: 3, lazyConnect: true });
+    throw new Error("Redis not initialized — call connectRedis first");
   }
   return client;
 }
 
 export async function connectRedis(url: string): Promise<Redis> {
-  const redis = getRedis(url);
-  if (redis.status === "wait" || redis.status === "end") {
-    await redis.connect();
+  if (!client) {
+    client = await createClient(url);
   }
-  return redis;
+  return client;
 }
 
 export async function closeRedis(): Promise<void> {
