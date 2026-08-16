@@ -3,7 +3,7 @@ import { z } from "zod";
 const positionsEnvSchema = z.object({
   APY_DATABASE_URL: z.string().url(),
   APY_REDIS_URL: z.string().min(1),
-  RPC_BASE: z.string().url(),
+  RPC_MONAD: z.string().url().default("https://rpc.monad.xyz"),
   POSITIONS_POLL_INTERVAL_MS: z.coerce
     .number()
     .int()

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { fetchLiFiSwapData } from "@chains/evm/protocols/lifi/swap-resolver.js";
 import { describeIntegration } from "../../helpers/integration.js";
-import { TOKENS, WALLETS, BASE_CHAIN_ID, ONE_USDC } from "../../datasets/base.js";
+import { TOKENS, WALLETS, MONAD_CHAIN_ID, ONE_USDC } from "../../datasets/monad.js";
 
 // Contract: the LiFi /v1/quote response still carries estimate.toAmount and
 // transactionRequest.{to,data}. fetchLiFiSwapData maps exactly these fields into
@@ -22,7 +22,7 @@ describeIntegration("contract: LiFi quote (Base USDC->WETH)", () => {
       toToken: TOKENS.WETH,
       fromAmount: ONE_USDC * 5n, // 5 USDC to comfortably route
       fromAddress: WALLETS.sample,
-      chainId: BASE_CHAIN_ID,
+      chainId: MONAD_CHAIN_ID,
       slippage: 0.005,
     });
 

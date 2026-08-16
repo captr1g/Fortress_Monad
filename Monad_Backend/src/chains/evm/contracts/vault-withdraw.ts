@@ -1,6 +1,6 @@
 import { createPublicClient, http, type PublicClient, type Address } from "viem";
 
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 
 import {
   resolveProtocolEntry,
@@ -11,7 +11,7 @@ import {
 } from "../types.js";
 import { CalldataBuilder } from "./vault-builder.js";
 import { EvmSimulator } from "../simulator.js";
-import { erc20Abi, erc4626Abi } from "../config/base_abi.js";
+import { erc20Abi, erc4626Abi } from "../config/abi.js";
 import { AerodromeVaultService } from "../protocols/aerodrome/aerodrome-vault.service.js";
 
 export type AmountType = "shares" | "usdc" | "percent" | "all";
@@ -41,7 +41,7 @@ export class WithdrawService {
     this.config = config;
     this.builder = builder;
     this.simulator = simulator;
-    this.client = createPublicClient({ chain: base, transport: http(config.rpcUrl) });
+    this.client = createPublicClient({ chain: monad, transport: http(config.rpcUrl) });
     this.aerodromeVault = new AerodromeVaultService(config);
   }
 

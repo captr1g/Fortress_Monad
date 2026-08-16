@@ -8,7 +8,7 @@ import {
   makeWithdrawIntent,
   makeRefuseIntent,
 } from "../../../factories/intent.js";
-import { TOKENS } from "../../../datasets/base.js";
+import { TOKENS } from "../../../datasets/monad.js";
 
 // The Intent schema is the trust boundary between the LLM and the executor.
 // Anything malformed must be rejected here, before it can build calldata.
@@ -90,7 +90,7 @@ describe("IntentSchema — strategy", () => {
             tokenIn: TOKENS.USDC,
             bps: 10000,
             amountFixed: "",
-            protocolData: { marketId: "cbETH-USDC", targetLtv: 0.5, borrowAmount: "" },
+            protocolData: { marketId: "WETH-USDC", targetLtv: 0.5, borrowAmount: "" },
           },
         ],
       }),

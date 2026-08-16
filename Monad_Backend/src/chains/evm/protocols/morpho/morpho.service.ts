@@ -1,11 +1,11 @@
 import { createPublicClient, http, keccak256, encodeAbiParameters, type Address } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import type {
   MorphoMarketParams,
   MorphoInOut,
   ExistingMarketPosition,
 } from "@domains/yield/types/market.js";
-import { morphoBlueAbi, marketParamsAbiType } from "../../config/base_abi.js";
+import { morphoBlueAbi, marketParamsAbiType } from "../../config/abi.js";
 import {
   fetchOraclePrice,
   ORACLE_PRICE_SCALE,
@@ -49,7 +49,7 @@ export async function fetchExistingPosition(
   user: Address,
 ): Promise<ExistingMarketPosition> {
   try {
-    const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(rpcUrl) });
     const id = computeMarketId(market);
 
     const [, borrowShares, collateral] = (await client.readContract({

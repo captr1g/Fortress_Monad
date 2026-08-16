@@ -21,7 +21,7 @@ export const deterministicEnv = {
   TENDERLY_ACCESS_KEY: "test-tenderly-key",
   TENDERLY_ACCOUNT_SLUG: "test-account",
   TENDERLY_PROJECT_SLUG: "test-project",
-  RPC_BASE: "https://test.base.org",
+  RPC_MONAD: "https://test.rpc.monad.xyz",
   PORT: "3000",
 };
 

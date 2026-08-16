@@ -1,5 +1,5 @@
 import { createPublicClient, http, encodeFunctionData, type Address } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import type { EvmTransaction, EvmChainConfig } from "../../types.js";
 import {
   ExitResult,
@@ -8,7 +8,7 @@ import {
 } from "@domains/yield/types/market.js";
 import { EvmSimulator } from "../../simulator.js";
 import { MorphoMarketService, readPosition } from "./morpho.service.js";
-import { morphoBlueAbi, morphoExitExecutorAbi } from "../../config/base_abi.js";
+import { morphoBlueAbi, morphoExitExecutorAbi } from "../../config/abi.js";
 import { computeExitAmounts } from "./exit-math.js";
 import { tokenAddress } from "@core/registry/index.js";
 import { fetchLiFiUnwindQuote } from "../lifi/swap-resolver.js";
@@ -186,7 +186,7 @@ export class ExitService {
   private async authorizationTxs(
     walletAddress: Address,
   ): Promise<EvmTransaction[]> {
-    const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
     const authorized = await client.readContract({
       address: this.config.morphoBlue,
       abi: morphoBlueAbi,

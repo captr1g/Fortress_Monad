@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { describeIntegration } from "../../helpers/integration.js";
-import { BASE_CHAIN_ID } from "../../datasets/base.js";
+import { MONAD_CHAIN_ID } from "../../datasets/monad.js";
 
 // Contract: the Morpho GraphQL markets query still returns items[].marketId and
 // items[].state.{supplyApy,borrowApy,rewards[]}. MorphoAdapter.getRatesBatch reads
@@ -33,7 +33,7 @@ describeIntegration("contract: Morpho GraphQL markets", () => {
     const res = await fetch(MORPHO_GRAPHQL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, variables: { chainIds: [BASE_CHAIN_ID] } }),
+      body: JSON.stringify({ query, variables: { chainIds: [MONAD_CHAIN_ID] } }),
     });
     expect(res.ok).toBe(true);
 

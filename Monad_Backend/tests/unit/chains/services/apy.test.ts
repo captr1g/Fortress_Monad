@@ -6,9 +6,9 @@ type Leg = StrategyLeg & StrategyLegRates;
 
 function leg(o: Partial<Leg> = {}): Leg {
   return {
-    marketKey: "cbETH-USDC",
+    marketKey: "WETH-USDC",
     marketKeyHash: "0xhash",
-    collateralToken: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",
+    collateralToken: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
     collateralValue: 200,
     debtValue: 100,
     collateralApy: 0.05,

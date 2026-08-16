@@ -16,7 +16,7 @@ describeIntegration("integration: Planner (real OpenAI)", () => {
       model: process.env.OPENAI_MODEL ?? "gpt-4o",
     });
     ctx = {
-      chainKey: "base",
+      chainKey: "monad",
       domains: new Map([["yield", new YieldDomain()]]),
       configProtocols: ["Morpho", "Aave", "Fluid", "Euler", "CompoundV3", "Pendle", "LiFi"],
     };

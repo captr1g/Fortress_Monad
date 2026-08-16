@@ -5,7 +5,7 @@ import {
   makeDepositIntent,
   makeWithdrawIntent,
 } from "../factories/intent.js";
-import { WALLETS, BASE_CHAIN_ID, ONE_USDC } from "../datasets/base.js";
+import { WALLETS, MONAD_CHAIN_ID, ONE_USDC } from "../datasets/monad.js";
 
 // LLM-free re-simulation endpoint + the static registry dump. /simulate hits real
 // build + Tenderly but zero OpenAI, so it's cheap and deterministic in shape.
@@ -72,10 +72,10 @@ describeIntegration("api: POST /fortress/simulate + GET /fortress/registry", () 
   it("200: GET /fortress/registry returns Base with tokens and markets", async () => {
     const res = await h.app.inject({ method: "GET", url: "/fortress/registry" });
     expect(res.statusCode).toBe(200);
-    const base = res.json().chains.find((c: { chainId: number }) => c.chainId === BASE_CHAIN_ID);
+    const base = res.json().chains.find((c: { chainId: number }) => c.chainId === MONAD_CHAIN_ID);
     expect(base).toBeDefined();
     expect(base.executable).toBe(true);
     expect(base.tokens.some((t: { symbol: string }) => t.symbol === "USDC")).toBe(true);
-    expect(base.markets.some((m: { label: string }) => m.label === "cbETH-USDC")).toBe(true);
+    expect(base.markets.some((m: { label: string }) => m.label === "WETH-USDC")).toBe(true);
   });
 });

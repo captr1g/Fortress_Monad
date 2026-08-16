@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import type { Address, PublicClient } from "viem";
 import { loadApyConfig } from "./config.js";
+import { MONAD_CHAIN_ID } from "@chains/evm/config/monad.js";
 import { getPool } from "./db/client.js";
 import { connectRedis } from "./cache/redis.js";
 import { AaveAdapter } from "./adapters/aave.js";
@@ -25,7 +26,7 @@ export async function startApyService(
   const redis = await connectRedis(config.APY_REDIS_URL);
 
   const aaveAdapter = new AaveAdapter(deps.getClient, {
-    8453: config.AAVE_POOL_BASE as Address,
+    [MONAD_CHAIN_ID]: config.AAVE_POOL_MONAD as Address,
   });
 
   const morphoAdapter = new MorphoAdapter();

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { loadBaseConfig } from "@chains/evm/config/base.js";
+import { loadMonadConfig } from "@chains/evm/config/monad.js";
 import type { EvmChainConfig } from "@chains/evm/types.js";
 import { EvmKernel } from "@chains/evm/kernel.js";
 import { Planner } from "@core/planner/planner.js";
@@ -28,7 +28,7 @@ export type ServiceHarness = {
 
 export async function buildRealService(): Promise<ServiceHarness> {
   seedRegistry();
-  const config = loadBaseConfig();
+  const config = loadMonadConfig();
 
   const planner = new Planner({
     apiKey: process.env.OPENAI_API_KEY!,
@@ -49,7 +49,7 @@ export async function buildRealService(): Promise<ServiceHarness> {
   const orchestrator = new Orchestrator({
     planner,
     domains: new Map([["yield", yieldDomain]]),
-    kernels: new Map([["base", kernel]]),
+    kernels: new Map([["monad", kernel]]),
   });
 
   return {
@@ -70,7 +70,7 @@ export type AppHarness = {
 
 export async function buildRealApp(): Promise<AppHarness> {
   seedRegistry();
-  const config = loadBaseConfig();
+  const config = loadMonadConfig();
 
   const planner = new Planner({
     apiKey: process.env.OPENAI_API_KEY!,
@@ -91,11 +91,11 @@ export async function buildRealApp(): Promise<AppHarness> {
   const orchestrator = new Orchestrator({
     planner,
     domains: new Map([["yield", yieldDomain]]),
-    kernels: new Map([["base", kernel]]),
+    kernels: new Map([["monad", kernel]]),
   });
 
   const app = await createServer({ port: 0 });
-  registerPlanRoutes(app, orchestrator, "base", config.chainId);
+  registerPlanRoutes(app, orchestrator, "monad", config.chainId);
   registerSimulateRoutes(app, kernel);
   await app.ready();
 

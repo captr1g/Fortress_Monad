@@ -4,7 +4,7 @@ import {
   EXIT_MODE_ENUM,
   ExitRequestSchema,
 } from "@domains/yield/types/exit.js";
-import { WALLETS } from "../../../datasets/base.js";
+import { WALLETS } from "../../../datasets/monad.js";
 
 describe("ExitModeSchema", () => {
   it("accepts the three known modes", () => {
@@ -29,10 +29,10 @@ describe("EXIT_MODE_ENUM", () => {
 });
 
 describe("ExitRequestSchema", () => {
-  const base = { walletAddress: WALLETS.sample, market: "cbETH-USDC", mode: "full_to_loan" as const };
+  const base = { walletAddress: WALLETS.sample, market: "WETH-USDC", mode: "full_to_loan" as const };
 
   it("accepts a minimal valid request", () => {
-    expect(ExitRequestSchema.parse(base)).toMatchObject({ market: "cbETH-USDC" });
+    expect(ExitRequestSchema.parse(base)).toMatchObject({ market: "WETH-USDC" });
   });
 
   it("accepts an optional targetLtv in range", () => {

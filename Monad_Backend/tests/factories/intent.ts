@@ -9,7 +9,7 @@ import type {
   StrategyIntentType,
   LeverageIntentType,
 } from "@domains/yield/types/intent.js";
-import { TOKENS, ONE_USDC } from "../datasets/base.js";
+import { TOKENS, ONE_USDC } from "../datasets/monad.js";
 
 type Overrides<T> = Partial<T>;
 
@@ -72,15 +72,15 @@ export function makeLeverageIntent(
   return {
     action: "leverage",
     inputToken: TOKENS.USDC,
-    collateralToken: TOKENS.cbETH,
+    collateralToken: TOKENS.WETH,
     inputAmount: ONE_USDC.toString(),
     multiplier: 2,
-    marketId: "cbETH-USDC",
+    marketId: "WETH-USDC",
     ...o,
   };
 }
 
-// A minimal supply+borrow strategy on the cbETH-USDC market.
+// A minimal supply+borrow strategy on the WETH-USDC market.
 export function makeStrategyIntent(
   o: Overrides<StrategyIntentType> = {},
 ): StrategyIntentType {
@@ -92,20 +92,20 @@ export function makeStrategyIntent(
       {
         action: "swap",
         tokenIn: TOKENS.USDC,
-        tokenOut: TOKENS.cbETH,
+        tokenOut: TOKENS.WETH,
         bps: 10000,
       },
       {
         action: "supplyCollateral",
-        tokenIn: TOKENS.cbETH,
+        tokenIn: TOKENS.WETH,
         bps: 10000,
-        protocolData: { marketId: "cbETH-USDC" },
+        protocolData: { marketId: "WETH-USDC" },
       },
       {
         action: "borrow",
         tokenIn: TOKENS.USDC,
         bps: 10000,
-        protocolData: { marketId: "cbETH-USDC", targetLtv: 0.5 },
+        protocolData: { marketId: "WETH-USDC", targetLtv: 0.5 },
       },
     ],
     targetLtv: 0.5,

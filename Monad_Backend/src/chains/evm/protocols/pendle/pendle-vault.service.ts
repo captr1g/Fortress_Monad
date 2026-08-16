@@ -2,7 +2,7 @@ import { type Address, encodeAbiParameters } from "viem";
 import type { EvmChainConfig, ProtocolEntry } from "../../types";
 import { PendleMarketService } from "./pendle.service.js";
 import { SWAP_SLIPPAGE, MIN_OUT_BPS } from "@domains/yield/types/market.js";
-import { DEPOSIT_DATA_ABI } from "../../config/base_abi.js";
+import { DEPOSIT_DATA_ABI } from "../../config/abi.js";
 import { norm } from "../../helper/utils.js";
 const DEADLINE_SECONDS = 600;
 

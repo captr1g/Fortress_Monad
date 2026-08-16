@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { buildRealApp, type AppHarness } from "../helpers/harness.js";
 import { describeIntegration } from "../helpers/integration.js";
-import { WALLETS, TOKENS, BASE_CHAIN_ID } from "../datasets/base.js";
+import { WALLETS, TOKENS, MONAD_CHAIN_ID } from "../datasets/monad.js";
 
 // Real wired Fastify app via app.inject (no socket). Success path hits real
 // OpenAI + Tenderly; failure paths exercise validation, refusal, and error
@@ -31,7 +31,7 @@ describeIntegration("api: POST /fortress/plan", () => {
     // Fully JSON-safe: value + gasUsed serialized as strings.
     expect(typeof body.transactions[0].value).toBe("string");
     expect(typeof body.simulation.gasUsed).toBe("string");
-    expect(body.transactions[0].chainId).toBe(BASE_CHAIN_ID);
+    expect(body.transactions[0].chainId).toBe(MONAD_CHAIN_ID);
     expect(body).toHaveProperty("depositApy");
   });
 

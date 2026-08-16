@@ -6,7 +6,7 @@ import {
   aavePoolAbi,
   cometAbi,
   erc4626Abi,
-} from "@chains/evm/config/base_abi.js";
+} from "@chains/evm/config/abi.js";
 import type { DepositLeg, DepositApy } from "@domains/yield/types/market.js";
 
 const MORPHO_GRAPHQL = "https://blue-api.morpho.org/graphql";
@@ -14,9 +14,12 @@ const DEFILLAMA_CHART = "https://yields.llama.fi/chart";
 const TIMEOUT_MS = 10_000;
 const RAY = 10n ** 27n;
 const SECONDS_PER_YEAR = 31_536_000;
-// ~7 days of Base blocks (2s), used to sample ERC-4626 share-price growth.
-const SAMPLE_BLOCK_OFFSET = 302_400n;
-const AAVE_POOL_BASE = "0xA238Dd80C259a72e81d7e4664a9801593F98d1c5";
+// ~7 days of Monad blocks. Block time measured at 0.30s against live mainnet
+// RPC (ADDRESSES.md §1), so 604800s / 0.3 ≈ 2.016M blocks. The APY maths below
+// annualises off the two blocks' actual timestamps, not off this constant, so
+// it only has to land roughly a week back — public Monad RPC serves archive
+// state at this depth.
+const SAMPLE_BLOCK_OFFSET = 2_016_000n;
 const CACHE_TTL_SECONDS = 120;
 const CACHE_PREFIX = "vault-apy:";
 
@@ -39,7 +42,7 @@ export function vaultApyCacheKey(protocol: ProtocolEntry, pendleMarket?: string,
 // value) when the source is missing or fails — and a failed fetch caches nothing.
 export async function fetchProtocolApy(
   protocol: ProtocolEntry,
-  rpcUrl: string,
+  config: EvmChainConfig,
   redis?: Redis,
   pendleMarket?: string,
   aerodromePool?: string,
@@ -52,7 +55,7 @@ export async function fetchProtocolApy(
     if (cached !== null) return Number(cached);
   }
 
-  const apy = await fetchBySource(protocol, rpcUrl, pendleMarket, aerodromePool);
+  const apy = await fetchBySource(protocol, config, pendleMarket, aerodromePool);
 
   if (redis && apy !== null) {
     await redis
@@ -65,27 +68,30 @@ export async function fetchProtocolApy(
 // Dispatches to the protocol's configured rate source.
 async function fetchBySource(
   protocol: ProtocolEntry,
-  rpcUrl: string,
+  config: EvmChainConfig,
   pendleMarket?: string,
   aerodromePool?: string,
 ): Promise<number | null> {
   switch (protocol.apySource) {
     case "morpho-vault":
-      return fetchMorphoVaultApy(protocol.address);
+      return fetchMorphoVaultApy(protocol.address, config.chainId);
     case "aave-pool":
-      return fetchAaveSupplyApy(rpcUrl);
+      return fetchAaveSupplyApy(protocol, config);
     case "compound-comet":
-      return fetchCompoundApy(protocol.positionToken, rpcUrl);
-    case "aerodrome-gauge":
-      return fetchAerodromeGaugeApy(protocol, rpcUrl, aerodromePool);
+      return fetchCompoundApy(protocol.positionToken, config.rpcUrl);
     case "defillama":
       return fetchDefiLlamaApy(protocol.defiLlamaPoolId);
     case "pendle-implied":
-      return fetchPendleImpliedApy(protocol, pendleMarket);
+      return fetchPendleImpliedApy(protocol, config.chainId, pendleMarket);
     case "erc4626-onchain":
-      // For adapter-pattern protocols (e.g. Yo), positionToken is the actual
-      // ERC-4626 vault that accrues yield; protocol.address is the adapter.
-      return fetchErc4626OnchainApy(protocol.positionToken ?? protocol.address, rpcUrl);
+      // For adapter-pattern protocols, positionToken is the actual ERC-4626
+      // vault that accrues yield; protocol.address is the adapter.
+      return fetchErc4626OnchainApy(
+        protocol.positionToken ?? protocol.address,
+        config.rpcUrl,
+      );
+    // "aerodrome-gauge" has no Monad venue — Aerodrome is Base-only. Left in
+    // the ApySource union so the (inert) Aerodrome code paths still typecheck.
     default:
       return null;
   }
@@ -93,6 +99,7 @@ async function fetchBySource(
 
 async function fetchMorphoVaultApy(
   vault: `0x${string}`,
+  chainId: number,
 ): Promise<number | null> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
@@ -101,7 +108,7 @@ async function fetchMorphoVaultApy(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        query: `{ vaultByAddress(address:"${vault}", chainId:8453){ state { netApy } } }`,
+        query: `{ vaultByAddress(address:"${vault}", chainId:${chainId}){ state { netApy } } }`,
       }),
       signal: controller.signal,
     });
@@ -118,14 +125,22 @@ async function fetchMorphoVaultApy(
   }
 }
 
-async function fetchAaveSupplyApy(rpcUrl: string): Promise<number | null> {
+// Supply APY for an Aave V3 market, read from its own Pool. Monad runs two:
+// Aave V3 Monad (POOL_REVISION 11) and Neverland (revision 2). Their
+// getReserveData return shapes were probed live and are identical — both emit
+// the 15-word legacy struct aavePoolAbi declares — so one ABI drives both.
+async function fetchAaveSupplyApy(
+  protocol: ProtocolEntry,
+  config: EvmChainConfig,
+): Promise<number | null> {
+  if (!protocol.aavePool) return null;
   try {
-    const client = createPublicClient({ transport: http(rpcUrl) });
+    const client = createPublicClient({ transport: http(config.rpcUrl) });
     const data = (await client.readContract({
-      address: AAVE_POOL_BASE,
+      address: protocol.aavePool,
       abi: aavePoolAbi,
       functionName: "getReserveData",
-      args: ["0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"],
+      args: [config.usdc],
     })) as { currentLiquidityRate: bigint };
     // Aave liquidity rate is a per-second ray APR; APY = (1 + apr/secs)^secs - 1.
     const secondsPerYear = 31_536_000;
@@ -161,101 +176,6 @@ async function fetchCompoundApy(
     return null;
   }
 }
-
-// Aerodrome gauge APY: (rewardRate * SECONDS_PER_YEAR * aeroPrice) / totalStakedUsd.
-// AERO/USD price derived from the USDC-AERO pool's reserves on-chain.
-const AERO_TOKEN = "0x940181a94A35A4569E4529A3CDfB74e38FD98631";
-const USDC_AERO_POOL = "0x6cDcb1C4A4D1C3C6d054b27AC5B77e89eAFb971d";
-
-const gaugeAbi = [
-  { name: "rewardRate", type: "function", stateMutability: "view", inputs: [] as const, outputs: [{ name: "", type: "uint256" }] as const },
-  { name: "totalSupply", type: "function", stateMutability: "view", inputs: [] as const, outputs: [{ name: "", type: "uint256" }] as const },
-] as const;
-
-const poolReservesAbi = [
-  { name: "getReserves", type: "function", stateMutability: "view", inputs: [] as const, outputs: [{ name: "_reserve0", type: "uint256" }, { name: "_reserve1", type: "uint256" }, { name: "_blockTimestampLast", type: "uint256" }] as const },
-  { name: "token0", type: "function", stateMutability: "view", inputs: [] as const, outputs: [{ name: "", type: "address" }] as const },
-] as const;
-
-async function fetchAerodromeGaugeApy(
-  protocol: ProtocolEntry,
-  rpcUrl: string,
-  poolLabel?: string,
-): Promise<number | null> {
-  const pools = protocol.aerodromePools ?? [];
-  const defaultLabel = protocol.defaultAerodromePool;
-  let targetPool: typeof pools[0] | undefined;
-  if (poolLabel) {
-    targetPool = pools.find((p) => p.label.toLowerCase() === poolLabel.toLowerCase());
-  } else if (defaultLabel) {
-    targetPool = pools.find((p) => p.label.toLowerCase() === defaultLabel.toLowerCase());
-  }
-  if (!targetPool) targetPool = pools[0];
-  if (!targetPool) return null;
-
-  try {
-    const client = createPublicClient({ transport: http(rpcUrl) });
-
-    // 1. Gauge metrics
-    const [rewardRate, totalStaked] = await Promise.all([
-      client.readContract({ address: targetPool.gauge, abi: gaugeAbi, functionName: "rewardRate" }) as Promise<bigint>,
-      client.readContract({ address: targetPool.gauge, abi: gaugeAbi, functionName: "totalSupply" }) as Promise<bigint>,
-    ]);
-
-    if (totalStaked === 0n) return null;
-
-    // 2. AERO price from USDC-AERO pool reserves
-    const [reserves, token0] = await Promise.all([
-      client.readContract({ address: USDC_AERO_POOL, abi: poolReservesAbi, functionName: "getReserves" }) as Promise<[bigint, bigint, bigint]>,
-      client.readContract({ address: USDC_AERO_POOL, abi: poolReservesAbi, functionName: "token0" }) as Promise<string>,
-    ]);
-
-    const [reserve0, reserve1] = reserves;
-    // Determine which reserve is USDC (6 dec) and which is AERO (18 dec)
-    const usdcIsToken0 = token0.toLowerCase() !== AERO_TOKEN.toLowerCase();
-    const usdcReserve = usdcIsToken0 ? reserve0 : reserve1;
-    const aeroReserve = usdcIsToken0 ? reserve1 : reserve0;
-
-    if (aeroReserve === 0n) return null;
-
-    // AERO price in USDC (6 decimals) per 1 AERO (18 decimals)
-    const aeroPriceNum = Number(usdcReserve) / (Number(aeroReserve) / 1e12);
-
-    // 3. Read the TARGET pool's reserves for TVL calculation
-    const USDC_ADDRESS = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-    const [targetReserves, targetToken0, totalLpSupply] = await Promise.all([
-      client.readContract({ address: targetPool.pool, abi: poolReservesAbi, functionName: "getReserves" }) as Promise<[bigint, bigint, bigint]>,
-      client.readContract({ address: targetPool.pool, abi: poolReservesAbi, functionName: "token0" }) as Promise<string>,
-      client.readContract({
-        address: targetPool.pool,
-        abi: [{ name: "totalSupply", type: "function", stateMutability: "view", inputs: [] as const, outputs: [{ name: "", type: "uint256" }] as const }] as const,
-        functionName: "totalSupply",
-      }) as Promise<bigint>,
-    ]);
-
-    if (totalLpSupply === 0n) return null;
-
-    // Identify the USDC side of the target pool
-    const targetUsdcIsToken0 = targetToken0.toLowerCase() === USDC_ADDRESS.toLowerCase();
-    const targetUsdcReserve = targetUsdcIsToken0 ? targetReserves[0] : targetReserves[1];
-
-    // Pool TVL ≈ 2 * USDC reserve (50/50 value approximation)
-    const totalPoolUsd = Number(targetUsdcReserve) * 2 / 1e6;
-    const stakedFraction = Number(totalStaked) / Number(totalLpSupply);
-    const stakedUsd = totalPoolUsd * stakedFraction;
-
-    if (stakedUsd <= 0) return null;
-
-    const annualRewardsUsd = (Number(rewardRate) / 1e18) * SECONDS_PER_YEAR * aeroPriceNum;
-    const apr = annualRewardsUsd / stakedUsd;
-
-    // Cap at 500% to reject absurd readings
-    return apr >= 0 && apr <= 5 ? apr : null;
-  } catch {
-    return null;
-  }
-}
-
 
 // Model-free APY for any ERC-4626 vault (e.g. Euler Earn) with no rate call or feed:
 // annualize the share-price growth (convertToAssets) between now and a block ~7d ago,
@@ -320,6 +240,7 @@ async function fetchErc4626OnchainApy(
 // (falls back to the default whitelisted market when none was specified).
 async function fetchPendleImpliedApy(
   protocol: ProtocolEntry,
+  chainId: number,
   marketOverride?: string,
 ): Promise<number | null> {
   const market = marketOverride ?? protocol.defaultPendleMarket;
@@ -328,7 +249,7 @@ async function fetchPendleImpliedApy(
   const timeout = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(
-      `https://api-v2.pendle.finance/core/v1/${8453}/markets/${market}`,
+      `https://api-v2.pendle.finance/core/v1/${chainId}/markets/${market}`,
       {
         signal: controller.signal,
       },
@@ -427,7 +348,7 @@ export async function computeDepositApy(
         ? resolveLegVault(protocol, a.pendleMarket)
         : undefined;
       const apy = protocol
-        ? await fetchProtocolApy(protocol, config.rpcUrl, redis, resolvedMarket?.address, a.aerodromePool)
+        ? await fetchProtocolApy(protocol, config, redis, resolvedMarket?.address, a.aerodromePool)
         : null;
       return {
         protocol: a.protocol,

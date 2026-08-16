@@ -11,38 +11,46 @@ export type CuratedStrategy = {
   prompt: string;
 };
 
+// Every entry is a plain USDC deposit or split-deposit. The Base catalog this
+// replaced was four Morpho collateral/borrow loops; on Monad the executors that
+// build those (FortStrategyExecutor, MorphoLeverageExecutor) are not deployed,
+// so "strategy" and "leverage" are unregistered capabilities and any looped
+// prompt here would seed as a permanent build error. Add loop strategies back
+// alongside those capabilities once the executors are live.
+//
+// Venues below are exactly the ones registered on FortVault and reachable from
+// the backend today — see boot.ts registerCapabilities.
 export const STRATEGY_CATALOG: CuratedStrategy[] = [
   {
-    id: "cbeth-single-borrow-55",
-    title: "cbETH supply + single borrow (30% LTV)",
+    id: "aave-usdc-single",
+    title: "Aave V3 USDC supply",
     summary:
-      "Swap USDC into cbETH, supply to Morpho cbETH-USDC, borrow USDC once at 30% LTV.",
-    prompt:
-      "I have 1 USDC on Base. Swap 100% USDC to WETH. Wrap 100% WETH into cbETH. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base. Borrow USDC at 30% LTV against cbETH.",
+      "Supply USDC to Aave V3 Monad — the deepest USDC venue on the chain, with roughly 108M of open capacity.",
+    prompt: "I have 1 USDC on Monad. Deposit 100% into Aave.",
   },
   {
-    id: "cbeth-loop-2x-50",
-    title: "cbETH 2-loop leverage (35% LTV)",
+    id: "usdc-split-aave-euler",
+    title: "USDC split: Aave V3 + Euler",
     summary:
-      "Build a leveraged cbETH position by looping borrow → swap → supply twice at 35% LTV.",
+      "Split USDC across Aave V3 Monad and the Euler eUSDC vault, so the position is not concentrated in one lending market.",
     prompt:
-      "I have 1 USDC on Base. Swap 100% USDC to WETH. Wrap 100% WETH into cbETH. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base. Then repeat 2 times: borrow USDC at 35% LTV, swap borrowed USDC to WETH, wrap WETH into cbETH, and supply 100% cbETH.",
+      "I have 1 USDC on Monad. Deposit 60% into Aave and 40% into Euler.",
   },
   {
-    id: "cbeth-borrow-redeploy-55",
-    title: "cbETH borrow + redeploy (30% LTV)",
+    id: "usdc-split-three-venue",
+    title: "USDC three-venue spread",
     summary:
-      "Supply cbETH, borrow USDC at 55% LTV, then redeploy the borrowed USDC back into cbETH collateral.",
+      "Spread USDC across Aave V3, Euler and Curvance to diversify protocol risk across three independent lending codebases.",
     prompt:
-      "I have 1 USDC on Base. Swap 100% USDC to WETH. Wrap 100% WETH into cbETH. Supply 100% cbETH as collateral to Morpho market cbETH-USDC on Base. Borrow USDC at 30% LTV against cbETH. Swap 100% borrowed USDC to WETH, wrap WETH into cbETH, and supply 100% cbETH.",
+      "I have 1 USDC on Monad. Deposit 50% into Aave, 25% into Euler and 25% into Curvance.",
   },
   {
-    id: "multi-collateral-cbeth-cbbtc-50",
-    title: "cbETH + cbBTC multi-collateral (50% LTV)",
+    id: "usdc-aave-neverland",
+    title: "Aave V3 + Neverland",
     summary:
-      "Split into cbETH and cbBTC, supply both to their Morpho markets, borrow USDC at 50% LTV against the combined collateral.",
+      "Split across the two Aave V3 markets on Monad. Neverland is the same codebase at an older revision, with a higher reserve factor and a lower supply rate.",
     prompt:
-      "I have 2 USDC on Base. Swap 70% USDC to WETH and 30% USDC to cbBTC. Wrap 100% WETH into cbETH. Supply 100% cbETH and 100% cbBTC to their respective Morpho markets on Base. Borrow USDC at 50% LTV against the combined collateral.",
+      "I have 1 USDC on Monad. Deposit 70% into Aave and 30% into Neverland.",
   },
 ];
 

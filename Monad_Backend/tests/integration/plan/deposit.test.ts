@@ -3,7 +3,7 @@ import { buildRealService, testLogger, type ServiceHarness } from "../../helpers
 import { describeIntegration } from "../../helpers/integration.js";
 import { assertWellFormedTx, assertWellFormedSimulation } from "../../helpers/assertions.js";
 import { makeDepositIntent, makeSplitDepositIntent } from "../../factories/intent.js";
-import { WALLETS, BASE_CHAIN_ID, ONE_USDC } from "../../datasets/base.js";
+import { WALLETS, MONAD_CHAIN_ID, ONE_USDC } from "../../datasets/monad.js";
 import type { Intent } from "@domains/yield/types/intent.js";
 
 let h: ServiceHarness;
@@ -22,7 +22,7 @@ describeIntegration("integration: deposit plan (real build + real Tenderly)", ()
 
     expect(result.intent.action).toBe("deposit");
     expect(result.transactions.length).toBeGreaterThanOrEqual(2);
-    for (const tx of result.transactions) assertWellFormedTx(tx, BASE_CHAIN_ID);
+    for (const tx of result.transactions) assertWellFormedTx(tx, MONAD_CHAIN_ID);
     expect(result.transactions[0].to.toLowerCase()).toBe(h.config.usdc.toLowerCase());
     expect(result.transactions.at(-1)!.to.toLowerCase()).toBe(h.config.vault.toLowerCase());
     assertWellFormedSimulation(result.simulation);
@@ -35,7 +35,7 @@ describeIntegration("integration: deposit plan (real build + real Tenderly)", ()
       WALLETS.preview,
       testLogger(),
     );
-    for (const tx of result.transactions) assertWellFormedTx(tx, BASE_CHAIN_ID);
+    for (const tx of result.transactions) assertWellFormedTx(tx, MONAD_CHAIN_ID);
     assertWellFormedSimulation(result.simulation);
   });
 
@@ -43,6 +43,6 @@ describeIntegration("integration: deposit plan (real build + real Tenderly)", ()
     const smaller = makeDepositIntent({ amount: (ONE_USDC / 2n).toString() });
     const result = await h.kernel.execute(smaller as Intent, WALLETS.preview, testLogger());
     expect(result.intent.action === "deposit" && result.intent.amount).toBe((ONE_USDC / 2n).toString());
-    for (const tx of result.transactions) assertWellFormedTx(tx, BASE_CHAIN_ID);
+    for (const tx of result.transactions) assertWellFormedTx(tx, MONAD_CHAIN_ID);
   });
 });

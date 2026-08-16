@@ -1,5 +1,6 @@
-// ABI of base contracts
-// expand using {chain}_abi.ts
+// ABI fragments for the FORTRESS contracts and the third-party protocols they
+// route through. ABIs describe contract *shape*, not a chain, so this file is
+// chain-neutral — the addresses these are called against live in monad.ts.
 
 //deposit, withdraw, rebalance, swap-and-deposit
 export const fortVaultAbi = [
@@ -598,4 +599,95 @@ export const DEPOSIT_DATA_ABI = [
     ],
   },
   { type: "uint256" }, // deadline
+] as const;
+
+// ── FortSwapRouter (Monad) ────────────────────────────────────────────────────
+// On Monad `swapAndDeposit` lives on FortSwapRouter, not on FortVault. The
+// signature is identical to the Base-era vault function, so the kernel keeps
+// encoding the same args — only the target address differs (config.swapRouter).
+export const fortSwapRouterAbi = [
+  {
+    name: "swapAndDeposit",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "inputToken", type: "address" },
+      { name: "inputAmount", type: "uint256" },
+      { name: "minUsdcOut", type: "uint256" },
+      { name: "deadline", type: "uint256" },
+      {
+        name: "swapData",
+        type: "tuple[]",
+        components: [
+          { name: "callTo", type: "address" },
+          { name: "approveTo", type: "address" },
+          { name: "sendingAssetId", type: "address" },
+          { name: "receivingAssetId", type: "address" },
+          { name: "fromAmount", type: "uint256" },
+          { name: "callData", type: "bytes" },
+          { name: "requiresDeposit", type: "bool" },
+        ],
+      },
+      {
+        name: "entries",
+        type: "tuple[]",
+        components: [
+          { name: "protocolKey", type: "bytes32" },
+          { name: "bps", type: "uint16" },
+          { name: "minSharesOut", type: "uint256" },
+          { name: "data", type: "bytes" },
+        ],
+      },
+    ],
+    outputs: [],
+  },
+] as const;
+
+// ── shMONAD (FastLane liquid-staked MON) ─────────────────────────────────────
+// ERC-4626-shaped but `asset()` is the native-MON sentinel and `deposit` is
+// payable. `previewRedeem` is authoritative for exit sizing — it includes the
+// 64 bps exit haircut that `convertToAssets` ignores (ADDRESSES.md §5.5.1).
+export const shMonadAbi = [
+  {
+    name: "asset",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "address" }],
+  },
+  {
+    name: "deposit",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      { name: "assets", type: "uint256" },
+      { name: "receiver", type: "address" },
+    ],
+    outputs: [{ name: "shares", type: "uint256" }],
+  },
+  {
+    name: "redeem",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "shares", type: "uint256" },
+      { name: "receiver", type: "address" },
+      { name: "owner", type: "address" },
+    ],
+    outputs: [{ name: "assets", type: "uint256" }],
+  },
+  {
+    name: "previewRedeem",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "shares", type: "uint256" }],
+    outputs: [{ name: "assets", type: "uint256" }],
+  },
+  {
+    name: "convertToAssets",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "shares", type: "uint256" }],
+    outputs: [{ name: "assets", type: "uint256" }],
+  },
 ] as const;

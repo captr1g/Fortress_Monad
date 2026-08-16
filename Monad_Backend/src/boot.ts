@@ -1,12 +1,17 @@
 import "dotenv/config";
 import { z } from "zod";
 import { createPublicClient, http, type Chain } from "viem";
-import { base, mainnet, arbitrum } from "viem/chains";
+import { monad, monadTestnet } from "viem/chains";
 
 import { registerChain } from "./core/registry/chains.js";
 import { registerCapabilities } from "./core/registry/capabilities.js";
 import { createServer } from "./core/api/server.js";
-import { loadBaseConfig } from "./chains/evm/config/base.js";
+import {
+  loadMonadConfig,
+  MONAD_CHAIN_ID,
+  MONAD_TESTNET_CHAIN_ID,
+  MONAD_DEFAULT_RPC,
+} from "./chains/evm/config/monad.js";
 import { verifyProtocolInvariants } from "./chains/evm/config/invariants.js";
 
 import { Planner } from "./core/planner/planner.js";
@@ -49,9 +54,9 @@ const envSchema = z.object({
   TENDERLY_ACCESS_KEY: z.string().min(1),
   TENDERLY_ACCOUNT_SLUG: z.string().min(1),
   TENDERLY_PROJECT_SLUG: z.string().min(1),
-  RPC_BASE: z.string().url(),
-  RPC_ETH: z.string().optional().default(""),
-  RPC_ARB: z.string().optional().default(""),
+  // The one RPC this backend talks to. Monad is the only executable chain —
+  // there is no Base/Ethereum/Arbitrum fallback.
+  RPC_MONAD: z.string().url().default("https://rpc.monad.xyz"),
   PORT: z.coerce.number().int().positive().default(3000),
   LIFI_API_KEY: z.string().optional().default(""),
 });
@@ -60,76 +65,56 @@ async function main(): Promise<void> {
   const env = envSchema.parse(process.env);
 
   // --- Chain Registry ---
+  // Monad mainnet is the only chain FORTRESS registers. Every address below was
+  // verified against live RPC — see Monad_Contract/Fortress/ADDRESSES.md §2.
   registerChain({
-    chainKey: "base",
-    chainId: 8453,
+    chainKey: "monad",
+    chainId: MONAD_CHAIN_ID,
     vm: "evm",
-    label: "Base",
+    label: "Monad",
     executable: true,
     loanToken: "USDC",
     tokens: [
-      { symbol: "USDC", name: "USD Coin", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, stable: true, inputEnabled: true },
-      { symbol: "USDbC", name: "USD Base Coin", address: "0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA", decimals: 6, stable: true },
-      { symbol: "WETH", name: "Wrapped Ether", address: "0x4200000000000000000000000000000000000006", decimals: 18 },
-      { symbol: "cbETH", name: "Coinbase Wrapped Staked ETH", address: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22", decimals: 18 },
-      { symbol: "cbBTC", name: "Coinbase Wrapped BTC", address: "0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf", decimals: 8 },
-      { symbol: "wstETH", name: "Wrapped Staked ETH", address: "0xc1CBa3fCea344f92D9239c08C0568f6F2F0ee452", decimals: 18 },
-      { symbol: "weETH", name: "Wrapped eETH", address: "0x04C0599Ae5A44757c0af6F9eC3b93da8976c150A", decimals: 18 },
-      { symbol: "ezETH", name: "Renzo Restaked ETH", address: "0x2416092f143378750bb29b79eD961ab195CcEea5", decimals: 18 },
-      { symbol: "DAI", name: "Dai Stablecoin", address: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb", decimals: 18, stable: true },
-      { symbol: "EURC", name: "Euro Coin", address: "0x60a3E35Cc302bFA44Cb288Bc5a4F316Fdb1adb42", decimals: 6, stable: true },
-      { symbol: "AERO", name: "Aerodrome", address: "0x940181a94A35A4569E4529A3CDfB74e38FD98631", decimals: 18 },
-      { symbol: "DEGEN", name: "Degen", address: "0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed", decimals: 18 },
+      { symbol: "USDC", name: "USD Coin", address: "0x754704Bc059F8C67012fEd69BC8A327a5aafb603", decimals: 6, stable: true, inputEnabled: true },
+      { symbol: "WMON", name: "Wrapped Monad", address: "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A", decimals: 18 },
+      { symbol: "WETH", name: "Wrapped Ether", address: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242", decimals: 18 },
+      { symbol: "WBTC", name: "Wrapped Bitcoin", address: "0x0555E30da8f98308EdB960aa94C0Db47230d2B9c", decimals: 8 },
+      { symbol: "cbBTC", name: "Coinbase Wrapped BTC", address: "0xd18B7EC58Cdf4876f6AFebd3Ed1730e4Ce10414b", decimals: 8 },
+      { symbol: "USDT0", name: "Tether USD (USDT0)", address: "0xe7cd86e13AC4309349F30B3435a9d337750fC82D", decimals: 6, stable: true },
+      { symbol: "AUSD", name: "Agora Dollar", address: "0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a", decimals: 6, stable: true },
+      { symbol: "shMON", name: "FastLane Staked MON", address: "0x1B68626dCa36c7fE922fD2d55E4f631d962dE19c", decimals: 18 },
     ],
-    markets: [
-      { label: "cbETH-USDC", collateral: "cbETH", loan: "USDC" },
-      { label: "cbBTC-USDC", collateral: "cbBTC", loan: "USDC" },
-      { label: "wstETH-USDC", collateral: "wstETH", loan: "USDC" },
-      { label: "ezETH-USDC", collateral: "ezETH", loan: "USDC" },
-      { label: "WETH-USDC", collateral: "WETH", loan: "USDC" },
-    ],
-  });
-
-  registerChain({
-    chainKey: "ethereum",
-    chainId: 1,
-    vm: "evm",
-    label: "Ethereum",
-    executable: false,
-    loanToken: "USDC",
-    tokens: [
-      { symbol: "USDT", name: "Tether USD", address: "0xdAC17F958D2ee523a2206206994597C13D831ec7", decimals: 6, stable: true },
-    ],
-    markets: [],
-  });
-
-  registerChain({
-    chainKey: "arbitrum",
-    chainId: 42161,
-    vm: "evm",
-    label: "Arbitrum",
-    executable: false,
-    loanToken: "USDC",
-    tokens: [],
+    // Morpho Blue markets are not yet used from the backend: the leverage/exit
+    // executors that would trade against them are not deployed on Monad. Left
+    // empty rather than listing markets no code path can act on.
     markets: [],
   });
 
   // --- Capabilities ---
+  // Only what the deployed Monad contracts can actually execute today.
+  //
+  // NOT registered, deliberately:
+  //  - "leverage" / "exit" / "strategy": MorphoLeverageExecutor,
+  //    MorphoExitExecutor and FortStrategyExecutor are not deployed on Monad
+  //    (DEPLOYMENT.md §1). The services stay in the tree; add the actions here
+  //    once the executors are live and their addresses are set in the env.
+  //  - shMONAD: registered on-chain, but its adapter takes IFortProtocolEx
+  //    `data` carrying a full USDC->MON swap route. The backend has no builder
+  //    for that payload yet, so planning it would emit reverting calldata.
   registerCapabilities([
-    { chainKey: "base", domain: "yield", protocol: "Morpho", actions: ["deposit", "withdraw", "leverage", "strategy", "exit"] },
-    { chainKey: "base", domain: "yield", protocol: "Aave", actions: ["deposit", "withdraw"] },
-    { chainKey: "base", domain: "yield", protocol: "Fluid", actions: ["deposit", "withdraw"] },
-    { chainKey: "base", domain: "yield", protocol: "Euler", actions: ["deposit", "withdraw"] },
-    { chainKey: "base", domain: "yield", protocol: "CompoundV3", actions: ["deposit", "withdraw"] },
-    { chainKey: "base", domain: "yield", protocol: "Pendle", actions: ["deposit", "withdraw", "strategy"] },
-    { chainKey: "base", domain: "yield", protocol: "LiFi", actions: ["swap", "bridge"] },
+    { chainKey: "monad", domain: "yield", protocol: "Aave", actions: ["deposit", "withdraw"] },
+    { chainKey: "monad", domain: "yield", protocol: "Neverland", actions: ["deposit", "withdraw"] },
+    { chainKey: "monad", domain: "yield", protocol: "Curvance", actions: ["deposit", "withdraw"] },
+    { chainKey: "monad", domain: "yield", protocol: "Euler", actions: ["deposit", "withdraw"] },
+    { chainKey: "monad", domain: "yield", protocol: "Morpho", actions: ["deposit", "withdraw"] },
+    { chainKey: "monad", domain: "yield", protocol: "LiFi", actions: ["swap", "bridge"] },
   ]);
 
   // --- Core Services ---
-  const baseChainConfig = loadBaseConfig();
+  const monadChainConfig = loadMonadConfig();
 
   // Verify backend protocol addresses match on-chain vault registry
-  const invariantResult = await verifyProtocolInvariants(baseChainConfig);
+  const invariantResult = await verifyProtocolInvariants(monadChainConfig);
   if (invariantResult.skipped) {
     console.log(`[invariant:${invariantResult.chainKey}] Skipped (no vault or RPC).`);
   } else if (!invariantResult.ok) {
@@ -153,15 +138,21 @@ async function main(): Promise<void> {
   // call site below no-ops.
   const analytics = await startAnalyticsService();
 
-  const rpcs: Record<number, string> = { 8453: env.RPC_BASE };
-  if (env.RPC_ETH) rpcs[1] = env.RPC_ETH;
-  if (env.RPC_ARB) rpcs[42161] = env.RPC_ARB;
-  const CHAIN_MAP: Record<number, Chain> = { 8453: base, 1: mainnet, 42161: arbitrum };
+  // Monad only. Testnet is mapped so a testnet FORTRESS_CHAIN_ID still resolves
+  // to the right viem chain, but nothing else routes off-chain-id.
+  const rpcs: Record<number, string> = {
+    [MONAD_CHAIN_ID]: env.RPC_MONAD,
+    [MONAD_TESTNET_CHAIN_ID]: process.env.RPC_MONAD_TESTNET || monadTestnet.rpcUrls.default.http[0],
+  };
+  const CHAIN_MAP: Record<number, Chain> = {
+    [MONAD_CHAIN_ID]: monad,
+    [MONAD_TESTNET_CHAIN_ID]: monadTestnet,
+  };
 
   const apyResolver = await startApyService(app, {
     getClient: (chainId: number) => {
-      const rpcUrl = rpcs[chainId] ?? env.RPC_BASE;
-      const chain = CHAIN_MAP[chainId] ?? base;
+      const rpcUrl = rpcs[chainId] ?? env.RPC_MONAD ?? MONAD_DEFAULT_RPC;
+      const chain = CHAIN_MAP[chainId] ?? monad;
       return createPublicClient({ chain, transport: http(rpcUrl) });
     },
   });
@@ -171,7 +162,7 @@ async function main(): Promise<void> {
   // at prompt-assembly time without ever making a live call on a user's
   // request. See vault-apy-warmer.ts.
   if (yieldRedis) {
-    startVaultApyWarmer({ config: baseChainConfig, redis: yieldRedis, intervalMs: 60_000 });
+    startVaultApyWarmer({ config: monadChainConfig, redis: yieldRedis, intervalMs: 60_000 });
     console.log("[vault-apy-warmer] Started — polling every 60000ms");
   }
 
@@ -195,7 +186,7 @@ async function main(): Promise<void> {
   const yieldDomain = new YieldDomain();
 
   const evmKernel = new EvmKernel({
-    config: baseChainConfig,
+    config: monadChainConfig,
     tenderly: {
       accessKey: env.TENDERLY_ACCESS_KEY,
       accountSlug: env.TENDERLY_ACCOUNT_SLUG,
@@ -207,7 +198,7 @@ async function main(): Promise<void> {
   const orchestrator = new Orchestrator({
     planner,
     domains: new Map([["yield", yieldDomain]]),
-    kernels: new Map([["base", evmKernel]]),
+    kernels: new Map([["monad", evmKernel]]),
     redis: yieldRedis,
   });
 
@@ -215,7 +206,7 @@ async function main(): Promise<void> {
   // Self-invocation target for the async plan worker (see plan.controller.ts) —
   // same instance, loopback, so Cloud Run treats that call as a genuine
   // active request and keeps CPU allocated for its full duration.
-  registerPlanRoutes(app, orchestrator, "base", baseChainConfig.chainId, yieldRedis, `http://127.0.0.1:${env.PORT}`, analytics);
+  registerPlanRoutes(app, orchestrator, "monad", monadChainConfig.chainId, yieldRedis, `http://127.0.0.1:${env.PORT}`, analytics);
   registerSimulateRoutes(app, evmKernel);
 
   // Strategies service needs the orchestrator for preview builds
@@ -223,12 +214,12 @@ async function main(): Promise<void> {
     orchestrator,
     kernel: evmKernel,
     apyResolver,
-    chainId: baseChainConfig.chainId,
+    chainId: monadChainConfig.chainId,
   });
   registerStrategiesRoutes(app, strategiesService);
 
   registerExitRoutes(app, {
-    config: baseChainConfig,
+    config: monadChainConfig,
     tenderly: {
       accessKey: env.TENDERLY_ACCESS_KEY,
       accountSlug: env.TENDERLY_ACCOUNT_SLUG,
@@ -238,7 +229,7 @@ async function main(): Promise<void> {
   });
 
   registerWithdrawRoutes(app, {
-    config: baseChainConfig,
+    config: monadChainConfig,
     tenderly: {
       accessKey: env.TENDERLY_ACCESS_KEY,
       accountSlug: env.TENDERLY_ACCOUNT_SLUG,
@@ -248,9 +239,9 @@ async function main(): Promise<void> {
   });
 
   const positionsService = await startPositionsService({
-    rpcUrl: env.RPC_BASE,
-    morphoBlue: baseChainConfig.morphoBlue,
-    chainId: baseChainConfig.chainId,
+    rpcUrl: env.RPC_MONAD,
+    morphoBlue: monadChainConfig.morphoBlue,
+    chainId: monadChainConfig.chainId,
     apyResolver,
     analytics,
   });

@@ -6,16 +6,16 @@ import {
 
 describe("InputTokenMismatch", () => {
   it("is an Error with the symbol and address preserved", () => {
-    const err = new InputTokenMismatch("WETH", "0x4200000000000000000000000000000000000006");
+    const err = new InputTokenMismatch("WETH", "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242");
     expect(err).toBeInstanceOf(Error);
     expect(err.name).toBe("InputTokenMismatch");
     expect(err.symbol).toBe("WETH");
-    expect(err.address).toBe("0x4200000000000000000000000000000000000006");
+    expect(err.address).toBe("0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242");
   });
 
   it("mentions the symbol twice in the guidance message", () => {
-    const err = new InputTokenMismatch("cbETH", "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22");
-    expect(err.message).toContain("cbETH");
+    const err = new InputTokenMismatch("WETH", "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242");
+    expect(err.message).toContain("WETH");
     // Message tells the user how to fix it.
     expect(err.message.toLowerCase()).toMatch(/mention|switch/);
   });

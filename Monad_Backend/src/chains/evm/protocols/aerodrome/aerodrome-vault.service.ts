@@ -1,7 +1,7 @@
 /** Builds deposit/redeem `data` params for the AerodromeAdapter on-chain contract. */
 
 import { createPublicClient, http, encodeAbiParameters, encodeFunctionData, type Address, type PublicClient } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import type { EvmChainConfig, AerodromePool } from "../../types.js";
 
 const DEADLINE_SECONDS = 600; // 10 minutes
@@ -67,7 +67,7 @@ export class AerodromeVaultService {
 
   constructor(config: EvmChainConfig) {
     this.config = config;
-    this.client = createPublicClient({ chain: base, transport: http(config.rpcUrl) }) as PublicClient;
+    this.client = createPublicClient({ chain: monad, transport: http(config.rpcUrl) }) as PublicClient;
     const entry = config.protocols.find((p) => p.aerodromePools?.length);
     this.pools = entry?.aerodromePools ?? [];
     this.defaultPool = this.pools.find((p) => p.label === entry?.defaultAerodromePool) ?? this.pools[0];

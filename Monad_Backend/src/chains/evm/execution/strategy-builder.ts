@@ -23,7 +23,7 @@ import {
   pendleDataAbiType,
   pendleWrapDataAbiType,
   setAuth,
-} from "../config/base_abi.js";
+} from "../config/abi.js";
 import { ORACLE_PRICE_SCALE, WAD } from "./pricing.js";
 import { ltvToWad } from "../helper/utils.js";
 

@@ -1,5 +1,5 @@
 import { createPublicClient, http, encodeFunctionData, type Address } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import { CalldataBuilder } from "./contracts/vault-builder.js";
 import { EvmSimulator } from "./simulator.js";
 import { StrategyService } from "./execution/strategy.service.js";
@@ -8,7 +8,7 @@ import {
   fetchLiFiSwapData,
   fetchLiFiBridgeData,
 } from "./protocols/lifi/swap-resolver.js";
-import { fortVaultAbi, fortVaultFeeAbi, crossChainRouterAbi, erc20Abi } from "./config/base_abi.js";
+import { fortVaultAbi, fortVaultFeeAbi, crossChainRouterAbi, erc20Abi } from "./config/abi.js";
 import { readFeeBps, netAfterFee } from "./helper/fee.js";
 import type {
   EvmChainConfig,
@@ -185,7 +185,7 @@ export class EvmKernel {
     // The vault deducts the fee from the swapped USDC before depositing.
     let feeBps = 0n;
     try {
-      const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+      const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
       const fee = (await client.readContract({
         address: this.config.vault,
         abi: fortVaultFeeAbi,
@@ -317,7 +317,7 @@ export class EvmKernel {
   }
 
   private async readTokenBalance(token: Address, wallet: Address): Promise<bigint> {
-    const client = createPublicClient({ chain: base, transport: http(this.config.rpcUrl) });
+    const client = createPublicClient({ chain: monad, transport: http(this.config.rpcUrl) });
     return (await client.readContract({
       address: token,
       abi: erc20Abi,

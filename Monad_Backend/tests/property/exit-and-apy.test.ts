@@ -63,7 +63,7 @@ describe("property: aggregateStrategyApy equity identity + availability", () => 
           const legs: Leg[] = rawLegs.map((l, i) => ({
             marketKey: `m${i}`,
             marketKeyHash: `0x${i}`,
-            collateralToken: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",
+            collateralToken: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
             collateralValue: l.collateralValue,
             debtValue: l.debtValue,
             collateralApy: l.collateralApy,
@@ -94,7 +94,7 @@ describe("property: aggregateStrategyApy equity identity + availability", () => 
           {
             marketKey: "m",
             marketKeyHash: "0x0",
-            collateralToken: "0x2Ae3F1Ec7F1F5012CFEab0185bfc7aa3cf0DEc22",
+            collateralToken: "0xEE8c0E9f1BFFb4Eb878d8f15f368A02a35481242",
             collateralValue: coll + debt, // keep equity positive so only the missing rate can flip status
             debtValue: debt,
             collateralApy: 0.05,

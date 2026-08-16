@@ -10,8 +10,8 @@ import { makePositionView } from "../../../../factories/position.js";
 
 describe("collateralForLoanValue", () => {
   it("returns the pro-rata collateral for a loan value", () => {
-    const pos = makePositionView(); // 2 cbETH == 4 USDC value
-    // 2 USDC of loan value => half the collateral => 1 cbETH
+    const pos = makePositionView(); // 2 WETH == 4 USDC value
+    // 2 USDC of loan value => half the collateral => 1 WETH
     expect(collateralForLoanValue(pos, 2_000_000n)).toBe(1_000_000_000_000_000_000n);
   });
 
@@ -55,11 +55,11 @@ describe("computeExitAmounts — full_to_loan", () => {
 
 describe("computeExitAmounts — full_to_collateral", () => {
   it("sells only enough collateral (with 1% buffer) to cover debt and returns the rest", () => {
-    const pos = makePositionView(); // debt 1 USDC, 2 cbETH == 4 USDC
+    const pos = makePositionView(); // debt 1 USDC, 2 WETH == 4 USDC
     const a = computeExitAmounts("full_to_collateral", pos);
     // debtWithBuffer = 1_000_000 * 10100/10000 = 1_010_000
     // collateralToSell = collateralForLoanValue(pos, 1_010_000)
-    //   = 1_010_000 * 2e18 / 4_000_000 = 505_000_000_000_000_000 (0.505 cbETH)
+    //   = 1_010_000 * 2e18 / 4_000_000 = 505_000_000_000_000_000 (0.505 WETH)
     expect(a.collateralToSell).toBe(505_000_000_000_000_000n);
     expect(a.collateralReturned).toBe(pos.collateral - a.collateralToSell);
     expect(a.repayAssets).toBe(0n);

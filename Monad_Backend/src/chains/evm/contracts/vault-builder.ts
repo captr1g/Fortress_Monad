@@ -5,7 +5,7 @@ import {
   type PublicClient,
   type Address,
 } from "viem";
-import { base } from "viem/chains";
+import { monad } from "viem/chains";
 import {
   fortVaultAbi,
   fortVaultFeeAbi,
@@ -13,7 +13,7 @@ import {
   erc20Abi,
   erc4626Abi,
   cometAbi,
-} from "../config/base_abi.js";
+} from "../config/abi.js";
 import { resolveProtocolEntry, type EvmChainConfig, type ProtocolEntry } from "../types.js";
 import type {
   Intent,
@@ -34,7 +34,7 @@ export class CalldataBuilder {
   private cachedFeeBps: bigint | null = null;
 
   constructor(private readonly config: EvmChainConfig) {
-    this.client = createPublicClient({ chain: base, transport: http(config.rpcUrl) });
+    this.client = createPublicClient({ chain: monad, transport: http(config.rpcUrl) });
     this.pendleVault = new PendleVaultService(config);
     this.aerodromeVault = new AerodromeVaultService(config);
   }

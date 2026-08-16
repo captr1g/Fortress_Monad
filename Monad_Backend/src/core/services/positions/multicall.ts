@@ -1,6 +1,6 @@
 import { type Address, createPublicClient, http } from "viem";
-import { base } from "viem/chains";
-import { morphoBlueAbi, morphoOracleAbi } from "@chains/evm/config/base_abi.js";
+import { monad } from "viem/chains";
+import { morphoBlueAbi, morphoOracleAbi } from "@chains/evm/config/abi.js";
 import { computeMarketId } from "@chains/evm/protocols/morpho/morpho.service.js";
 import { ORACLE_PRICE_SCALE, WAD } from "@chains/evm/execution/pricing.js";
 import type { DiscoveredMarket, StoredPosition } from "./types.js";
@@ -19,7 +19,7 @@ export async function readPositionsBatch(
 ): Promise<Omit<StoredPosition, "netApy" | "updatedAt">[]> {
   if (markets.length === 0) return [];
 
-  const client = createPublicClient({ chain: base, transport: http(rpcUrl) });
+  const client = createPublicClient({ chain: monad, transport: http(rpcUrl) });
   const ids = markets.map((m) => computeMarketId(m.params));
 
   const positionCalls = ids.map((id) => ({

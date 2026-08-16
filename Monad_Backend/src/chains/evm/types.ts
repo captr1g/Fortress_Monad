@@ -41,6 +41,13 @@ export type ProtocolEntry = {
    * which contract holds their funds, not just the umbrella brand name.
    */
   vaultSymbol?: string;
+  /**
+   * For `apySource: "aave-pool"` — the Pool this venue supplies into. Monad has
+   * two Aave V3 markets (Aave V3 Monad and Neverland, a fork at an older
+   * revision), so the pool cannot be a module-level constant the way it was
+   * when Base had exactly one.
+   */
+  aavePool?: Address;
   pendleVaultMarkets?: PendleVaultMarket[];
   defaultPendleMarket?: Address;
   aerodromePools?: AerodromePool[];

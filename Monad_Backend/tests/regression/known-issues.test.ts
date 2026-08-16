@@ -6,7 +6,7 @@ import { normalizeIntentAmount } from "@chains/evm/execution/intent-utils.js";
 import type { Intent } from "@domains/yield/types/intent.js";
 import { makeStrategyIntent } from "../factories/intent.js";
 import { seedRegistry } from "../helpers/registry.js";
-import { BASE_CHAIN_ID, TOKENS } from "../datasets/base.js";
+import { MONAD_CHAIN_ID, TOKENS } from "../datasets/monad.js";
 
 beforeAll(() => seedRegistry());
 
@@ -22,7 +22,7 @@ describe("REGRESSION: ltvToWad float drift is bounded, not exact", () => {
 
 describe("REGRESSION: InputTokenMismatch from @shared/errors is recognized by suggestionsForError", () => {
   it("recognizes InputTokenMismatch and suggests starting from the mismatched token", () => {
-    const out = suggestionsForError(new InputTokenMismatch("WETH", "0x42"), BASE_CHAIN_ID);
+    const out = suggestionsForError(new InputTokenMismatch("WETH", "0x42"), MONAD_CHAIN_ID);
     expect(out.length).toBe(1);
     expect(out[0].label).toContain("WETH");
   });
@@ -32,8 +32,8 @@ describe("REGRESSION: re-simulation clears pinned step.amountFixed for strategy 
   it("strips amountFixed from every step on override", () => {
     const strategy = makeStrategyIntent({
       steps: [
-        { action: "swap", tokenIn: TOKENS.USDC, tokenOut: TOKENS.cbETH, bps: 10000, amountFixed: "1000000" },
-        { action: "supplyCollateral", tokenIn: TOKENS.cbETH, bps: 10000, protocolData: { marketId: "cbETH-USDC" } },
+        { action: "swap", tokenIn: TOKENS.USDC, tokenOut: TOKENS.WETH, bps: 10000, amountFixed: "1000000" },
+        { action: "supplyCollateral", tokenIn: TOKENS.WETH, bps: 10000, protocolData: { marketId: "WETH-USDC" } },
       ],
     });
     const out = normalizeIntentAmount(strategy as Intent, "9999999");

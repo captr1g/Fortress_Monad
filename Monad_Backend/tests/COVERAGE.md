@@ -91,8 +91,8 @@ Legend:
 | chains/evm/protocols/lifi/swap-resolver.ts | contract | lifi quote-contract |
 | chains/evm/protocols/pendle/pendle.service.ts | contract | pendle api-contract |
 | chains/evm/protocols/vault/builder.ts | integ/api | deposit build + plan/simulate api |
-| chains/evm/config/base.ts | integ | loadBaseConfig via harness |
-| chains/evm/config/base_abi.ts | unit (partial) | erc20Abi via compiler + tenderly contract |
+| chains/evm/config/monad.ts | integ | loadMonadConfig via harness |
+| chains/evm/config/abi.ts | unit (partial) | erc20Abi via compiler + tenderly contract |
 | chains/evm/types.ts, chains/types.ts | type-only | — |
 | chains/evm/kernel.ts | GAP (target abstraction) | not on live route |
 | chains/evm/services/strategy.service.ts | GAP | strategy integration candidate (real Morpho+LiFi) |
