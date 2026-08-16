@@ -12,10 +12,13 @@
     "build": "turbo run build",
     "start": "turbo run start",
     "lint": "turbo run lint",
-    "web": "npm run dev -w web"
+    "web": "npm run dev -w web",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
-    "turbo": "^2"
+    "turbo": "^2",
+    "vitest": "^3"
   },
   "overrides": {
     "@walletconnect/universal-provider": "2.21.10",

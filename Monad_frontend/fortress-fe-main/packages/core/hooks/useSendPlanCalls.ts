@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useConfig, useSendCalls, useSendTransaction } from "wagmi";
 import { waitForCallsStatus, waitForTransactionReceipt } from "wagmi/actions";
+import { isBatchUnsupported } from "./batchFallback";
 
 // A single transaction the backend wants signed & broadcast.
 export interface WalletCall {
@@ -15,22 +16,6 @@ export interface WalletCall {
 export interface SendPlanOptions {
   /** Fired as progress advances; `current` is 1-based. */
   onProgress?: (current: number, total: number) => void;
-}
-
-// Errors thrown by wallets that don't implement EIP-5792 wallet_sendCalls.
-// EIP-1193 uses 4200 ("Unsupported Method"); JSON-RPC uses -32601.
-function isSendCallsUnsupported(err: unknown): boolean {
-  const anyErr = err as { code?: number; cause?: { code?: number }; name?: string } | null;
-  const code = anyErr?.code ?? anyErr?.cause?.code;
-  if (code === 4200 || code === -32601) return true;
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return (
-    msg.includes("does not support") ||
-    msg.includes("not supported") ||
-    msg.includes("unsupported method") ||
-    msg.includes("method not found") ||
-    msg.includes("wallet_sendcalls")
-  );
 }
 
 /**
@@ -78,8 +63,15 @@ export function useSendPlanCalls() {
         }
         return (receipts ?? []).map((r) => r.transactionHash);
       } catch (err) {
-        if (!isSendCallsUnsupported(err)) throw err;
-        // else: wallet has no EIP-5792 support — fall through to legacy path.
+        if (!isBatchUnsupported(err)) throw err;
+        // else: this wallet can't (or won't) batch — fall through to the
+        // sequential path, which costs one signature per call but works on a
+        // plain EOA. Logged rather than silent so the reason is visible when
+        // someone wonders why they got two prompts instead of one.
+        console.info(
+          "[fortress] Batched send unavailable, sending calls sequentially:",
+          err instanceof Error ? err.message.split("\n")[0] : err,
+        );
       }
 
       // ── Fallback: sequential legacy sends ─────────────────────────────────
