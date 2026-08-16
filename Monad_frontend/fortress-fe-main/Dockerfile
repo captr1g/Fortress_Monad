@@ -6,12 +6,14 @@ WORKDIR /app
 # Install libc compatibility
 RUN apk add --no-cache libc6-compat
 
-# Copy workspace descriptors
+# Copy all workspace package descriptors
 COPY package*.json ./
 COPY apps/web/package*.json ./apps/web/
+COPY apps/mobile/package*.json ./apps/mobile/
 COPY packages/core/package*.json ./packages/core/
+COPY packages/config/package*.json ./packages/config/
 
-# Install all dependencies across workspaces
+# Install dependencies across all workspaces
 RUN npm ci
 
 # ── Stage 2: Builder ──
@@ -26,7 +28,7 @@ COPY tsconfig.json ./
 
 # Copy packages and web application source
 COPY packages/ ./packages/
-COPY apps/ ./apps/
+COPY apps/web/ ./apps/web/
 
 # Environment arguments for build-time embedding in Next.js
 ARG NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
@@ -49,8 +51,8 @@ ENV BACKEND_API_ORIGIN=$BACKEND_API_ORIGIN
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
-# Build all packages and the Next.js web application
-RUN npm run build
+# Build web application via Turborepo filter
+RUN npx turbo run build --filter=web
 
 # ── Stage 3: Production Runner ──
 FROM node:20-alpine AS runner

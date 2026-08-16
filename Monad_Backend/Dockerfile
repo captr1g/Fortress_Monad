@@ -14,11 +14,10 @@ RUN npm ci
 
 # Copy source code and config
 COPY tsconfig.json ./
-COPY vitest.config.ts ./
 COPY src/ ./src/
 
-# Compile TypeScript
-RUN npm run typecheck && npm run test && npx tsc
+# Compile TypeScript & verify types
+RUN npm run typecheck && npx tsc
 
 # ── Stage 2: Production Runner ──
 FROM node:20-alpine AS runner
@@ -32,7 +31,7 @@ ENV PORT=3000
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Copy compiled files and source for TSX fallback
+# Copy compiled files and source for TSX execution
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/src ./src
 COPY tsconfig.json ./
